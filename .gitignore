@@ -1,0 +1,8 @@
+.env
+.env.local
+*.pem
+*.key
+.venv/
+__pycache__/
+*.pyc
+out/

@@ -1,0 +1,13 @@
+{
+  "module_id": "hack:shape-finder",
+  "visibility": "private",
+  "url": "",
+  "description": "OpenCV red-shape detector (triangle, cube, cuboid) for a Viam camera",
+  "models": [
+    {
+      "api": "rdk:service:vision",
+      "model": "hack:shape-finder:detector"
+    }
+  ],
+  "entrypoint": "run.sh"
+}
