@@ -11,6 +11,9 @@ on fast during the hackathon and keep readable afterward.
 
 - Language: Python 3.12
 - Robot framework: Viam (`viam-sdk==0.80.0`)
+- Hardware: **UFactory xArm 5** (5-DOF), via the Viam `Arm` component. DOF is
+  known (5); per-joint limits / reach / payload are datasheet-TODO — see
+  `arm5/controls/safety.py`. Do not guess those numbers.
 - Remote: `origin` → https://github.com/sandeepKBM/Viam-hackathon-arm-5-
 
 ## Environment
@@ -91,6 +94,28 @@ Robotics skills copied in for this repo — invoke the relevant one:
 - `multi-root-context-map` — multi-root / symlinked workspaces
 - `cdx-agent-context` — read/regenerate `.codex_graph` context packs
 - `token-efficient-debugging` — large logs / noisy tests / broad exploration
+
+## Repo graph (cdx-agent)
+
+A `.codex_graph/` context pack is generated for this repo (gitignored). Read
+`.codex_graph/context_pack.md` first for entrypoints, configs, and call chains.
+
+**Important:** the vendored `reference/rdk` clone is NOT a scan target — it would
+drown the pack in rdk's own entrypoints/configs. `cdx-agent` has no repo-local
+ignore for the single-repo graph, so regenerate with `reference` excluded:
+
+```bash
+# clean pack (arm5 only) — preferred:
+PYTHONPATH=/common/users/ss5772/codex_tools/repo_graph_agent \
+  python3 -c "from repo_graph_agent.cli import build_graph; \
+  build_graph('$(pwd)', skip_dirs={'reference'})"
+
+# impact analysis before multi-file edits:
+cdx-agent graph impact --repo . --files arm5/controls/safety.py
+```
+
+Plain `cdx-agent --graph` also works but will re-include `reference/rdk`; if you
+run it, regenerate with the command above (or move `reference/` out of the tree).
 
 ## Reference
 

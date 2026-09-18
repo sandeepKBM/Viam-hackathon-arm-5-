@@ -26,12 +26,20 @@ class ArmCamera:
         return cls(Camera.from_robot(robot, name))
 
     async def get_image(self) -> ViamImage:
-        """Return a single frame from the camera.
+        """Return the first frame from the camera.
 
-        TODO: decide on mime-type filtering and error handling for
-        cameras that expose multiple named image streams.
+        Note: viam-sdk 0.80.0's ``Camera`` has no single-image call; it only
+        exposes ``get_images()`` (all named streams). We return the first
+        stream here.
+
+        TODO: filter by ``filter_source_names`` / mime type so this returns
+        the intended color stream deterministically rather than "the first".
         """
         images, _metadata = await self._camera.get_images()
+        if not images:
+            raise RuntimeError(
+                "Camera.get_images() returned no image streams; cannot return a frame."
+            )
         return images[0]
 
     async def get_point_cloud(self) -> Tuple[bytes, str]:

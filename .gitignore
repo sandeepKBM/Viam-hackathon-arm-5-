@@ -17,6 +17,9 @@ env/
 # --- Reference clones (not part of this repo; clone locally) ---
 reference/
 
+# --- cdx-agent generated graph artifacts (regenerate, don't commit) ---
+.codex_graph/
+
 # --- Viam / secrets ---
 config/robot.json
 *.key

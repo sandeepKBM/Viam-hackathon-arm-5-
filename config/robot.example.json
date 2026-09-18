@@ -3,8 +3,9 @@
   "api_key": "REPLACE_WITH_API_KEY_SECRET",
   "api_key_id": "REPLACE_WITH_API_KEY_ID",
   "arm_name": "arm",
-  "arm_model": "ufactory-xl15",
+  "arm_model": "ufactory-xarm5",
+  "arm_dof": 5,
   "camera_name": "camera",
   "vision_service_name": "vision-1",
-  "_note": "DOF / joint limits / payload: CONFIRM from UFactory XL15 datasheet -- do not assume"
+  "_note": "UFactory xArm 5, 5-DOF. Per-joint limits / reach / payload: CONFIRM from xArm 5 datasheet -- do not assume."
 }

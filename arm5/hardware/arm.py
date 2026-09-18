@@ -1,12 +1,13 @@
 """Thin wrapper around the Viam ``Arm`` component.
 
-Target hardware: a UFactory XL15 (UFactory xArm family), driven through the
-Viam `Arm` component/API -- this module does not talk to UFactory's own SDK
-directly.
+Target hardware: a UFactory xArm 5 (5-DOF; UFactory xArm family), driven
+through the Viam `Arm` component/API -- this module does not talk to
+UFactory's own SDK directly.
 
-TODO: fill in DOF, joint limits, and reach from the UFactory XL15 datasheet
-once available; do not hard-code guessed numbers here. See
-`arm5.controls.safety.SafetyLimits` for where those limits get enforced.
+DOF = 5 (per project owner). TODO: fill in per-joint limits and reach from the
+UFactory xArm 5 datasheet; do not hard-code guessed numbers here. See
+`arm5.controls.safety` (`XARM5_DOF`, `SafetyLimits`) for where those limits
+get enforced.
 """
 
 from __future__ import annotations
