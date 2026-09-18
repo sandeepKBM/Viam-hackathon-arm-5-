@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ivo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: Outfit, "Helvetica Neue", sans-serif;
+      color: #f4efe6;
+      background:
+        radial-gradient(900px 520px at 50% -10%, rgba(196, 165, 116, 0.16), transparent 55%),
+        radial-gradient(700px 480px at 110% 110%, rgba(80, 48, 24, 0.35), transparent 50%),
+        #0b0a09;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
+      opacity: 0.05;
+    }
+    main {
+      width: min(440px, 92vw);
+      padding: 42px 36px 36px;
+      text-align: center;
+      background: linear-gradient(180deg, rgba(255,247,232,0.05), rgba(255,255,255,0.02));
+      border: 1px solid rgba(212, 184, 134, 0.18);
+      border-radius: 28px;
+      box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(18px);
+    }
+    .eyebrow {
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      color: #c4a574;
+      margin: 0 0 10px;
+      font-weight: 400;
+    }
+    h1 {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 2.55rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      margin: 0 0 8px;
+      line-height: 1;
+    }
+    .hint {
+      color: #9a9386;
+      margin: 0 0 34px;
+      font-size: 0.92rem;
+      font-weight: 300;
+    }
+    .dial {
+      width: 196px;
+      height: 196px;
+      margin: 0 auto 28px;
+      border-radius: 50%;
+      padding: 3px;
+      background: conic-gradient(from 140deg, #8a6a3a, #f0d7a2, #8a6a3a, #3a2c18, #8a6a3a);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+    }
+    button {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 0;
+      cursor: pointer;
+      color: #f7f1e6;
+      font-family: Outfit, sans-serif;
+      font-size: 0.86rem;
+      font-weight: 400;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      background:
+        radial-gradient(circle at 35% 25%, rgba(255, 236, 200, 0.16), transparent 42%),
+        radial-gradient(circle at 50% 80%, #1a1612, #0d0b09 70%);
+    }
+    button:hover { color: #f0d7a2; }
+    button.hot {
+      background:
+        radial-gradient(circle at 50% 40%, rgba(180, 48, 36, 0.55), #1a0c0a 70%);
+      color: #ffd7c8;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    button:disabled { cursor: wait; color: #8c8578; }
+    @keyframes pulse { 50% { transform: scale(0.985); } }
+    .meta {
+      display: grid;
+      gap: 14px;
+      text-align: left;
+    }
+    .label {
+      display: block;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      font-size: 0.64rem;
+      color: #8a8174;
+      margin-bottom: 5px;
+    }
+    #heard, #task {
+      min-height: 1.4em;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 1.25rem;
+      font-style: italic;
+      color: #f4efe6;
+    }
+    #task { color: #e6c98a; font-style: normal; font-size: 1.15rem; }
+    #log { display: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Cell five</p>
+    <h1>Ivo</h1>
+    <p class="hint">Hold, speak, release. The arm will take care of the rest.</p>
+    <div class="dial">
+      <button id="talk" type="button">Hold to talk</button>
+    </div>
+    <div class="meta">
+      <div>
+        <span class="label">Heard</span>
+        <div id="heard">Waiting</div>
+      </div>
+      <div>
+        <span class="label">Intent</span>
+        <div id="task">—</div>
+      </div>
+    </div>
+    <div id="log"></div>
+  </main>
+  <script>
+    const btn = document.getElementById("talk");
+    const heardEl = document.getElementById("heard");
+    const taskEl = document.getElementById("task");
+    const logEl = document.getElementById("log");
+    let rec = null, chunks = [], holding = false;
+
+    function log(line) {
+      logEl.textContent = (logEl.textContent + line + "\n").trim().split("\n").slice(-12).join("\n");
+    }
+
+    async function start() {
+      if (holding || rec || btn.disabled) return;
+      holding = true;
+      chunks = [];
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        rec = new MediaRecorder(stream);
+        rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+        rec.start();
+        btn.classList.add("hot");
+        btn.textContent = "Listening";
+      } catch (err) {
+        holding = false;
+        heardEl.textContent = "Allow the microphone, then try again.";
+        log(String(err));
+        btn.classList.remove("hot");
+        btn.textContent = "Hold to talk";
+      }
+    }
+
+    async function stop() {
+      if (!holding || !rec) return;
+      holding = false;
+      const recorder = rec;
+      rec = null;
+      await new Promise((resolve) => {
+        recorder.onstop = resolve;
+        recorder.stop();
+        recorder.stream.getTracks().forEach((t) => t.stop());
+      });
+      btn.classList.remove("hot");
+      btn.textContent = "Sending";
+      btn.disabled = true;
+      const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      const body = new FormData();
+      body.append("audio", blob, "speech.webm");
+      try {
+        const res = await fetch("/api/talk", { method: "POST", body });
+        const data = await res.json();
+        if (!data.ok) {
+          heardEl.textContent = data.error || "Failed";
+          taskEl.textContent = "—";
+        } else {
+          heardEl.textContent = data.heard || "Silence";
+          const moves = (data.moves || []).map((m) => `${m.color} → ${m.place}`).join(" · ");
+          taskEl.textContent = data.task === "sort" && moves
+            ? `${data.task} · ${moves}`
+            : (data.task || "—");
+          log(JSON.stringify(data));
+        }
+      } catch (err) {
+        heardEl.textContent = String(err);
+      }
+      btn.disabled = false;
+      btn.textContent = "Hold to talk";
+    }
+
+    btn.addEventListener("pointerdown", (e) => { e.preventDefault(); start(); });
+    btn.addEventListener("pointerup", (e) => { e.preventDefault(); stop(); });
+    btn.addEventListener("pointerleave", () => { if (holding) stop(); });
+
+    async function poll() {
+      try {
+        const data = await (await fetch("/api/status")).json();
+        if (data.busy) btn.textContent = "In motion";
+        else if (!holding && !rec) btn.textContent = "Hold to talk";
+        btn.disabled = !!data.busy;
+      } catch (_) {}
+      setTimeout(poll, 800);
+    }
+    poll();
+  </script>
+</body>
+</html>

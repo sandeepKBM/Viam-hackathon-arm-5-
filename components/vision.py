@@ -72,8 +72,10 @@ class VisionComponent:
     async def locate_shapes(self) -> List[LocatedShape]:
         return await locate_shapes_3d(self.machine, self.camera_name, WORLD_FRAME)
 
-    async def locate_blocks(self) -> List[LocatedShape]:
-        return await locate_block_colors(self.machine, self.camera_name, WORLD_FRAME)
+    async def locate_blocks(self, colors: tuple[str, ...] = ("red", "yellow")) -> List[LocatedShape]:
+        return await locate_block_colors(
+            self.machine, self.camera_name, WORLD_FRAME, colors=colors
+        )
 
     async def detect(self) -> List[Shape2D]:
         return await detect(self.machine, self.detector_name, self.camera_name)

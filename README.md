@@ -1,6 +1,6 @@
 # Viam-hackathon-arm-5-
 
-xArm6 cell that finds red and yellow blocks on the table, picks them at the taught floor Z, and sorts them into bins.
+xArm6 cell that finds red and yellow blocks, picks them at the taught floor Z, and sorts them into bins.
 
 Machine details live in `machine/config.json`. Do not commit `.env`.
 
@@ -14,7 +14,17 @@ Machine details live in `machine/config.json`. Do not commit `.env`.
 | Obstacles | `table`, `wall-front`, `wall-side`, `ceiling` |
 | Arm IP | `192.168.1.233` |
 
-Cell fragment obstacles (mm, world): table `z = -123`, ceiling `z = 1050`, front wall `x = 740`, side wall `y = -500`.
+## Layout
+
+```
+components/     robot, vision, gripper, voice helpers
+scripts/        one-shot cell commands
+voice/          hold-to-talk UI
+collector/      live stream + dataset capture
+moondream/      loaded detect host + boxes
+module/         on-robot Viam vision module
+machine/        cell config snapshot
+```
 
 ## Setup
 
@@ -27,8 +37,6 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
-
-`ARM_NAME`, `CAMERA_NAME`, `GRIPPER_NAME`, and `FLOOR_Z` already match this cell.
 
 ## Taught poses and safety
 
@@ -44,33 +52,18 @@ Values in `components/constants.py` (also mirrored in `machine/config.json`):
 
 Every `ArmComponent.move_to_position` call is checked against:
 
-- **Z floor** `179.76 mm` — end-effector is never commanded below this
-- **Workspace** — taught quad BL → TL → TR → BR: `(-77, 489)`, `(459, 507)`, `(476, -286)`, `(145, -303)`
-
-Bin drops use `go_to("bin1"|"bin2")` (joint moves) so they are not blocked by the polygon.
+- **Z floor** `179.76 mm`
+- **Workspace** BL → TL → TR → BR: `(-77, 489)`, `(459, 507)`, `(476, -286)`, `(145, -303)`
 
 ```sh
-python check_workspace.py
-python get_joint_positions.py
-python go_home.py
+python scripts/check_workspace.py
+python scripts/get_joint_positions.py
+python scripts/go_home.py
 ```
 
-## Color sort (pick and place)
+## Color sort
 
-`sort_blocks.py` is the main routine:
-
-1. Go home, open the gripper, capture color + depth from `cam`.
-2. Detect **red** and **yellow** blocks (OpenCV HSV). Yellows first so a stacked yellow comes off before the red under it.
-3. Deproject each centroid and transform it into the world frame.
-4. For each block:
-   - open gripper
-   - move to pick XY at travel height (home Z)
-   - descend to **floor Z**
-   - grab
-   - lift
-   - go to the taught bin
-   - open gripper
-   - home
+`scripts/sort_blocks.py` is the main routine: home, detect red/yellow, pick at depth-derived Z, place by color.
 
 | Color | Bin |
 | --- | --- |
@@ -78,49 +71,26 @@ python go_home.py
 | yellow | bin2 |
 
 ```sh
-python locate_blocks.py          # home + print world XY / workspace check (no grasp)
-python sort_blocks.py            # full sort
+python scripts/locate_blocks.py
+python scripts/sort_blocks.py
+python voice/voice.py                 # http://127.0.0.1:8766
+python collector/collect.py           # http://127.0.0.1:8767
+python moondream/server.py            # http://127.0.0.1:8768
+python scripts/capture_image.py
+python scripts/find_colors.py
+python scripts/find_shapes.py
 ```
 
-## Vision scripts
+`python voice/voice.py` is hold-to-talk. Whisper + LLM map speech to `home`, `sort`, `locate`, `capture`, or `quit`. Do not use Globe/Fn twice (emoji picker). Needs `OPENAI_API_KEY`.
 
-```sh
-python capture_image.py          # save color frame to out/frame.png
-python find_colors.py            # red/yellow bboxes on a saved image → out/colors.png
-python find_shapes.py            # home, then classify red triangle/cube/cuboid
-```
+Collector writes paired samples into `collector/dataset/` (gitignored): `color/`, `depth/`, `depth_viz/`, `meta/`.
 
-`components/shapes.py` does HSV color masks and shape labels. `components/vision.py` talks to `cam` and optional Viam vision services.
-
-To run the detector on the machine, add a local module pointing at `module/run.sh` and a vision service:
-
-```json
-{
-  "name": "vision-1",
-  "api": "rdk:service:vision",
-  "model": "hack:shape-finder:detector",
-  "attributes": { "camera": "cam" }
-}
-```
+Moondream stays loaded; ping `/api/detect` to classify objects and draw boxes into `collector/dataset/annotated/`.
 
 ## Cursor / Viam MCP (optional)
 
-Cursor can drive the cell through `erh:viam-mcp-server`. `.cursor/mcp.json` points at `http://127.0.0.1:8765`.
-
-In the [Viam app](https://app.viam.com), add a generic service with model `erh:viam-mcp-server:mcp-server`:
-
-```json
-{
-  "components": ["arm", "cam", "gripper"],
-  "address": ":8765"
-}
-```
-
-If the machine is not on this LAN, tunnel it:
+`.cursor/mcp.json` points at `http://127.0.0.1:8765`. Tunnel if needed:
 
 ```sh
 viam machine part tunnel --part=<main-part-id> --local-port=8765 --remote-port=8765
-nc -zv 127.0.0.1 8765
 ```
-
-Then enable the `viam` server in **Cursor Settings → Tools & MCP**. Arm tools look like `arm__end_position` and `arm__move_to_joint_positions`.

@@ -1,13 +1,14 @@
 import json
-import os
 import sys
 from collections import Counter
 
 import cv2
 
+import boot
+from boot import ROOT
 from components.shapes import annotate_colors, find_block_colors
 
-IMAGE = sys.argv[1] if len(sys.argv) > 1 else os.path.join("out", "frame.png")
+IMAGE = sys.argv[1] if len(sys.argv) > 1 else str(ROOT / "out" / "frame.png")
 
 
 def main() -> None:
@@ -23,13 +24,16 @@ def main() -> None:
                 "color": b.color,
                 "bbox": {"x": b.box[0], "y": b.box[1], "w": b.box[2], "h": b.box[3]},
                 "center_px": [b.cx, b.cy],
+                "aspect": round(b.aspect_ratio, 2),
+                "long_angle_deg": round(b.angle, 1),
             }
             for b in blocks
         ],
     }
     print(json.dumps(payload, indent=2))
-    os.makedirs("out", exist_ok=True)
-    out_path = os.path.join("out", "colors.png")
+    out_dir = ROOT / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "colors.png"
     cv2.imwrite(out_path, annotate_colors(bgr, blocks))
     print(f"annotated: {out_path}")
 

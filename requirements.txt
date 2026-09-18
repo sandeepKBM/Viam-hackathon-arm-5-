@@ -2,3 +2,11 @@ viam-sdk
 python-dotenv
 numpy
 opencv-python-headless
+pyobjc-framework-Cocoa
+openai
+sounddevice
+fastapi
+uvicorn
+python-multipart
+pillow
+moondream

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ivo · Moondream</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Outfit, sans-serif;
+      color: #f4efe6;
+      background: #0b0a09;
+    }
+    main { width: min(1100px, 94vw); margin: 28px auto 40px; }
+    h1 { font-family: "Cormorant Garamond", Georgia, serif; font-weight: 500; margin: 0 0 8px; }
+    .eyebrow { letter-spacing: 0.28em; text-transform: uppercase; font-size: 0.68rem; color: #c4a574; }
+    .muted { color: #9a9386; font-weight: 300; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; }
+    input {
+      flex: 1;
+      min-width: 240px;
+      border: 1px solid rgba(212,184,134,0.25);
+      background: #161412;
+      color: #f4efe6;
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 22px;
+      background: linear-gradient(180deg, #f0d7a2, #c4a574);
+      color: #1a140c;
+      font: 500 1rem Outfit, sans-serif;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: wait; }
+    img {
+      width: 100%;
+      border-radius: 14px;
+      background: #141210;
+      display: block;
+    }
+    #msg { min-height: 1.3em; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">Ivo · Moondream host</p>
+    <h1>Classify + boxes</h1>
+    <p class="muted" id="health">checking model…</p>
+    <div class="row">
+      <input id="path" value="collector/dataset/color/000001.png" />
+      <button id="go" type="button">Ping detect</button>
+    </div>
+    <p id="msg" class="muted"></p>
+    <img id="out" alt="Annotated detections" />
+  </main>
+  <script>
+    const health = document.getElementById("health");
+    const msg = document.getElementById("msg");
+    const out = document.getElementById("out");
+    const go = document.getElementById("go");
+
+    async function pingHealth() {
+      try {
+        const s = await fetch("/api/health").then((r) => r.json());
+        health.textContent = s.ok ? ("ready · " + s.model) : ("not ready · " + (s.error || "loading"));
+        go.disabled = !s.ok;
+      } catch {
+        health.textContent = "host offline";
+        go.disabled = true;
+      }
+    }
+
+    async function detect() {
+      go.disabled = true;
+      msg.textContent = "detecting…";
+      try {
+        const res = await fetch("/api/detect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: document.getElementById("path").value }),
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "detect failed");
+        msg.textContent = data.count + " objects";
+        out.src = "/api/last.png?t=" + Date.now();
+      } catch (e) {
+        msg.textContent = e.message;
+      } finally {
+        pingHealth();
+      }
+    }
+
+    go.addEventListener("click", detect);
+    pingHealth();
+    setInterval(pingHealth, 2000);
+  </script>
+</body>
+</html>

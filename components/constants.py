@@ -4,6 +4,8 @@ from typing import Dict, List, Tuple
 # End-effector is never commanded below this height (mm).
 FLOOR_Z = float(os.environ.get("FLOOR_Z", 179.75673))
 MIN_Z = float(os.environ.get("MIN_Z", FLOOR_Z))
+# World-frame Z of the table surface from depth (block tops sit above this).
+TABLE_Z = float(os.environ.get("TABLE_Z", 0.0))
 
 # Taught workspace corners (mm), perimeter order: BL -> TL -> TR -> BR.
 WORKSPACE_CORNERS: List[Tuple[float, float]] = [

@@ -1,3 +1,4 @@
+import math
 import os
 from dataclasses import dataclass
 from typing import List, Optional
@@ -25,6 +26,12 @@ class DetectedShape:
     aspect_ratio: float
     box: tuple
     color: str = ""
+    contour: Optional[np.ndarray] = None
+    angle: float = 0.0
+    long_px: float = 0.0
+    short_px: float = 0.0
+    long_p1: tuple = (0.0, 0.0)
+    long_p2: tuple = (0.0, 0.0)
 
 
 COLOR_RANGES = {
@@ -61,11 +68,15 @@ def _classify_contour(c: np.ndarray, min_area: int | None = None) -> Optional[De
     approx = cv2.approxPolyDP(c, 0.04 * peri, True)
     vertices = len(approx)
 
-    (_, _), (rw, rh), _ = cv2.minAreaRect(c)
+    (rcx, rcy), (rw, rh), rect_angle = cv2.minAreaRect(c)
     short, long_ = sorted((rw, rh))
     aspect_ratio = long_ / max(short, 1e-6)
     rect_area = rw * rh
     fill = area / rect_area if rect_area > 0 else 0.0
+    long_angle = rect_angle if rw >= rh else rect_angle + 90.0
+    rad = np.deg2rad(long_angle)
+    half = long_ / 2.0
+    dx, dy = float(np.cos(rad) * half), float(np.sin(rad) * half)
 
     if vertices == 3 or fill < 0.65:
         label = "triangle"
@@ -86,6 +97,12 @@ def _classify_contour(c: np.ndarray, min_area: int | None = None) -> Optional[De
         vertices=vertices,
         aspect_ratio=aspect_ratio,
         box=(x, y, w, h),
+        contour=c,
+        angle=float(long_angle),
+        long_px=float(long_),
+        short_px=float(short),
+        long_p1=(float(rcx - dx), float(rcy - dy)),
+        long_p2=(float(rcx + dx), float(rcy + dy)),
     )
 
 
@@ -168,6 +185,9 @@ def annotate_colors(bgr: np.ndarray, shapes: List[DetectedShape]) -> np.ndarray:
         color = draw.get(s.color, (255, 255, 255))
         x, y, w, h = s.box
         cv2.rectangle(out, (x, y), (x + w, y + h), color, 2)
+        p1 = (int(s.long_p1[0]), int(s.long_p1[1]))
+        p2 = (int(s.long_p2[0]), int(s.long_p2[1]))
+        cv2.line(out, p1, p2, color, 2)
         cv2.putText(
             out,
             f"{s.color} {s.label}",
@@ -230,6 +250,8 @@ class LocatedShape:
     z: float
     shape: Optional[DetectedShape] = None
     color: str = ""
+    depth_mm: float = 0.0
+    yaw: float = 0.0
 
 
 async def _color_depth_intrinsics(cam):
@@ -242,29 +264,52 @@ async def _color_depth_intrinsics(cam):
     return bgr, depth_mm, props.intrinsic_parameters
 
 
+def _mode_valid(depth_mm: np.ndarray, mask: np.ndarray) -> float:
+    d = np.asarray(depth_mm)
+    vals = d[(mask > 0) & (d > 0)]
+    if vals.size == 0:
+        return 0.0
+    rounded = np.rint(vals.astype(np.float64)).astype(np.int64)
+    values, counts = np.unique(rounded, return_counts=True)
+    return float(values[int(np.argmax(counts))])
+
+
 def _sample_depth(depth_mm: np.ndarray, cx: int, cy: int, win: int = 5) -> float:
     h, w = depth_mm.shape[:2]
     d = np.asarray(depth_mm)
     for r in (win, 10, 20, 40):
         y0, y1 = max(0, cy - r), min(h, cy + r + 1)
         x0, x1 = max(0, cx - r), min(w, cx + r + 1)
-        patch = d[y0:y1, x0:x1].astype(np.float64)
-        nonzero = patch[patch > 0]
-        if nonzero.size:
-            return float(np.median(nonzero))
+        mask = np.zeros((h, w), np.uint8)
+        mask[y0:y1, x0:x1] = 255
+        z = _mode_valid(d, mask)
+        if z > 0:
+            return z
     return 0.0
 
 
 def _sample_depth_in_box(depth_mm: np.ndarray, box: tuple) -> float:
     x, y, bw, bh = (int(v) for v in box)
     h, w = depth_mm.shape[:2]
+    mask = np.zeros((h, w), np.uint8)
     x0, y0 = max(0, x), max(0, y)
     x1, y1 = min(w, x + max(bw, 1)), min(h, y + max(bh, 1))
     if x1 <= x0 or y1 <= y0:
         return 0.0
-    patch = np.asarray(depth_mm)[y0:y1, x0:x1].astype(np.float64)
-    nonzero = patch[patch > 0]
-    return float(np.median(nonzero)) if nonzero.size else 0.0
+    mask[y0:y1, x0:x1] = 255
+    return _mode_valid(depth_mm, mask)
+
+
+def _sample_depth_in_block(depth_mm: np.ndarray, shape: DetectedShape) -> float:
+    d = np.asarray(depth_mm)
+    h, w = d.shape[:2]
+    if shape.contour is not None:
+        mask = np.zeros((h, w), np.uint8)
+        cv2.drawContours(mask, [shape.contour], -1, 255, thickness=-1)
+        z = _mode_valid(d, mask)
+        if z > 0:
+            return z
+    return _sample_depth_in_box(d, shape.box)
 
 
 def deproject(u: float, v: float, z_mm: float, intr) -> tuple:
@@ -276,10 +321,7 @@ def deproject(u: float, v: float, z_mm: float, intr) -> tuple:
 def _depth_at(depth_mm: Optional[np.ndarray], shape: DetectedShape) -> float:
     if depth_mm is None:
         return 0.0
-    z = _sample_depth(depth_mm, shape.cx, shape.cy)
-    if z <= 0:
-        z = _sample_depth_in_box(depth_mm, shape.box)
-    return z
+    return _sample_depth_in_block(depth_mm, shape)
 
 
 async def locate_shapes_camera(cam) -> List[LocatedShape]:
@@ -363,6 +405,13 @@ async def locate_block_colors(
             print(f"  skip {s.color} px=({s.cx},{s.cy}): no depth")
             continue
         p = await _pixel_to_world(machine, camera_name, s.cx, s.cy, z, intr, world_frame)
+        p1 = await _pixel_to_world(
+            machine, camera_name, s.long_p1[0], s.long_p1[1], z, intr, world_frame
+        )
+        p2 = await _pixel_to_world(
+            machine, camera_name, s.long_p2[0], s.long_p2[1], z, intr, world_frame
+        )
+        yaw = math.degrees(math.atan2(p2.y - p1.y, p2.x - p1.x))
         located.append(
             LocatedShape(
                 label=s.label,
@@ -371,6 +420,8 @@ async def locate_block_colors(
                 z=p.z,
                 shape=s,
                 color=s.color,
+                depth_mm=z,
+                yaw=yaw,
             )
         )
     return located

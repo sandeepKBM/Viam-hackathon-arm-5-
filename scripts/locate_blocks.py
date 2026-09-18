@@ -1,18 +1,16 @@
 import asyncio
 import json
 
-from dotenv import load_dotenv
-
+import boot  # noqa: F401
 from components.arm import ArmComponent
 from components.connection import connect_machine
-from components.constants import COLOR_BINS, MIN_Z
-from components.pickplace import pick_order
+from components.constants import COLOR_BINS
+from components.pickplace import pick_orientation, pick_order, tcp_pick_z
 from components.safety import in_workspace
 from components.vision import VisionComponent
 
 
 async def main() -> None:
-    load_dotenv()
     machine = await connect_machine()
     try:
         arm = ArmComponent(machine)
@@ -25,10 +23,14 @@ async def main() -> None:
                 "color": b.color,
                 "bin": COLOR_BINS.get(b.color),
                 "xy_mm": [round(b.x, 1), round(b.y, 1)],
+                "depth_mm": round(b.depth_mm, 1),
                 "world_z_mm": round(b.z, 1),
-                "pick_z_mm": MIN_Z,
+                "pick_z_mm": round(tcp_pick_z(b), 1),
                 "in_workspace": in_workspace(b.x, b.y),
                 "bbox": b.shape.box if b.shape else None,
+                "aspect": round(b.shape.aspect_ratio, 2) if b.shape else None,
+                "long_yaw_deg": round(b.yaw, 1),
+                "pick_theta_deg": round(pick_orientation(b)["theta"], 1),
             }
             for b in pick_order(blocks)
         ]

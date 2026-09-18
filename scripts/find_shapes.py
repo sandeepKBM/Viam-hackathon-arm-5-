@@ -1,15 +1,13 @@
 import asyncio
 import json
 
-from dotenv import load_dotenv
-
+import boot  # noqa: F401
 from components.arm import ArmComponent
 from components.connection import connect_machine
 from components.vision import VisionComponent
 
 
 async def main() -> None:
-    load_dotenv()
     machine = await connect_machine()
     try:
         arm = ArmComponent(machine)
