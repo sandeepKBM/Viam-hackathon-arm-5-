@@ -11,3 +11,8 @@ out/
 .codex_graph/
 reference/
 reference/
+
+# private HPC/GPU inference gateway — local only, not for the public repo
+hpc/
+.venv-hpc/
+.hf_cache/

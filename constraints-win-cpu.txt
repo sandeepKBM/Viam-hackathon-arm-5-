@@ -1,0 +1,12 @@
+# Local pip constraints for this Windows / AMD Ryzen CPU box.
+# torch 2.14.0 (the version `torch>=2.1` resolves to) fails to load on this
+# machine: OSError [WinError 1114] loading torch\lib\c10.dll. 2.6.0+cpu works.
+# Use with every install so deps (timm, accelerate, ...) don't bump torch back:
+#   pip install -r requirements-zeroshot.txt -c constraints-win-cpu.txt \
+#       --extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.6.0
+torchvision==0.21.0
+# transformers 5.x breaks Moondream2's trust_remote_code class
+# (AttributeError: 'HfMoondream' has no attribute 'all_tied_weights_keys').
+# Pin to late-4.x, which works for both Moondream2 and OWLv2.
+transformers==4.46.3
