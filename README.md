@@ -103,6 +103,67 @@ To run the detector on the machine, add a local module pointing at `module/run.s
 }
 ```
 
+## Zero-shot object detection (HuggingFace, experimental)
+
+Open-vocabulary detection: give the model **text prompts** ("red block",
+"yellow block") instead of tuning HSV ranges — no training. Default model is
+OWLv2 (`google/owlv2-base-patch16-ensemble`); Grounding DINO also works through
+the same `zero-shot-object-detection` pipeline. Output is the same
+`DetectedShape` the OpenCV path produces, so depth deprojection and the pick
+pipeline are unchanged. Torch/transformers are imported lazily — the color-sort
+path keeps working without them.
+
+```sh
+pip install -r requirements-zeroshot.txt      # torch, transformers, pillow, timm
+
+python capture_image.py                        # grab out/frame.png
+python find_objects_zeroshot.py                # offline, on the saved image (no robot)
+python find_objects_zeroshot.py out/frame.png "red block" "yellow block" "screwdriver"
+
+python locate_objects_zeroshot.py              # home + live cam + world XY (no grasp)
+```
+
+Env knobs (`components/zeroshot.py`): `ZS_MODEL`, `ZS_THRESHOLD` (default `0.1`),
+`ZS_PROMPTS` (comma-separated). First run downloads model weights. `VisionComponent`
+exposes `locate_objects_zeroshot(prompts=..., threshold=...)` for scripting.
+
+## Lightweight VLM: open-world naming + localization (Moondream, experimental)
+
+Idea: a small VLM **names** what's on the table, and those names drive detection —
+so you don't hardcode prompts/HSV. Moondream 2B (`vikhyatk/moondream2`) does
+`caption` / `query` / **`detect`** / **`point`** natively, so it can name *and*
+localize. Its `detect()` boxes come back as the same `DetectedShape`, so depth
+deprojection + the pick pipeline are unchanged.
+
+Two ways to localize (pick per-run):
+1. **VLM only** — Moondream `detect()` per label. Simplest.
+2. **VLM → OWLv2** — VLM lists labels, OWLv2 (`components/zeroshot.py`) draws the
+   boxes. Use when you want the detector's tighter boxes.
+
+**Runs on any device** via transformers, auto-detected: CUDA (fp16) on this
+server, Apple Silicon (MPS, fp32), or plain CPU (fp32). Inference can run on a
+separate machine (e.g. a Mac) — the Viam SDK connects to the robot remotely, so
+the script grabs frames + sends arm commands over the network while the model
+runs locally.
+
+```sh
+pip install -r requirements-vlm.txt
+
+python capture_image.py                         # grab out/frame.png
+python vlm_scene.py                             # caption + list objects + detect (offline)
+python vlm_scene.py out/frame.png "red block"   # detect a specific label
+python vlm_scene.py out/frame.png --ask "which block is on top?"
+```
+
+First run downloads weights (~4GB fp32 / ~2GB fp16). Env (`components/vlm.py`):
+`VLM_MODEL`, `VLM_REVISION`, `VLM_DTYPE` (`auto`|`float16`|`float32`),
+`VLM_DEVICE` (`cuda`|`mps`|`cpu`), `VLM_LIST_PROMPT`.
+
+**On a weak CPU-only Mac** the 2B is slow (seconds/frame). Options: keep it (fine
+for non-realtime picking), set `VLM_MODEL` to a smaller model (e.g. Florence-2),
+or use Moondream's own quantized 0.5B via their `moondream` package on Apple
+Silicon. `VisionComponent` also exposes `locate_objects_vlm(labels=..., use_zeroshot=...)`.
+
 ## Cursor / Viam MCP (optional)
 
 Cursor can drive the cell through `erh:viam-mcp-server`. `.cursor/mcp.json` points at `http://127.0.0.1:8765`.

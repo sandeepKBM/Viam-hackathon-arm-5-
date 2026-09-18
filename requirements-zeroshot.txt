@@ -1,0 +1,7 @@
+# Zero-shot / open-vocabulary object detection (HuggingFace).
+# Install on top of requirements.txt:  pip install -r requirements-zeroshot.txt
+# For CUDA wheels, install torch first from https://pytorch.org/get-started/locally/
+torch>=2.1
+transformers>=4.44
+pillow>=10.0
+timm>=1.0

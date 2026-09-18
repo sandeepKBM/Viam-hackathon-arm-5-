@@ -77,3 +77,35 @@ class VisionComponent:
 
     async def detect(self) -> List[Shape2D]:
         return await detect(self.machine, self.detector_name, self.camera_name)
+
+    async def locate_objects_zeroshot(
+        self,
+        prompts=None,
+        threshold=None,
+    ) -> List[LocatedShape]:
+        # Imported lazily: keeps torch/transformers optional for the color path.
+        from components.zeroshot import locate_objects_zeroshot
+
+        return await locate_objects_zeroshot(
+            self.machine,
+            self.camera_name,
+            WORLD_FRAME,
+            prompts=prompts,
+            threshold=threshold,
+        )
+
+    async def locate_objects_vlm(
+        self,
+        labels=None,
+        use_zeroshot: bool = False,
+    ) -> List[LocatedShape]:
+        # Imported lazily: keeps torch/transformers optional for the color path.
+        from components.vlm import locate_objects_vlm
+
+        return await locate_objects_vlm(
+            self.machine,
+            self.camera_name,
+            WORLD_FRAME,
+            labels=labels,
+            use_zeroshot=use_zeroshot,
+        )

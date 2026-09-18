@@ -1,0 +1,11 @@
+# Lightweight VLM (Moondream) via transformers — runs on CUDA / Apple Silicon (MPS) / CPU.
+# Install on top of requirements.txt:  pip install -r requirements-vlm.txt
+# On macOS the default pip torch wheel is correct (CPU + MPS). For CUDA, install
+# torch from https://pytorch.org/get-started/locally/ first.
+torch>=2.1
+transformers>=4.44
+pillow>=10.0
+einops>=0.7        # required by Moondream's modeling code
+accelerate>=0.30
+# Optional, only if you switch to a smaller model on a weak CPU:
+# timm>=1.0        # for Florence-2 / OWLv2 backbones
