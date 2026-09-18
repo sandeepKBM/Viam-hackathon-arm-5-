@@ -1,0 +1,10 @@
+# Core Viam Python SDK (pinned to the version scaffolded against)
+viam-sdk==0.80.0
+
+# Dev / testing
+pytest>=8.0
+
+# --- Optional, add as modules grow ---
+# numpy
+# opencv-python        # vision/perception
+# scipy                # controls

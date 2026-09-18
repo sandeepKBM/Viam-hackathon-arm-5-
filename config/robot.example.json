@@ -1,0 +1,10 @@
+{
+  "address": "my-machine-main.abcd1234.viam.cloud",
+  "api_key": "REPLACE_WITH_API_KEY_SECRET",
+  "api_key_id": "REPLACE_WITH_API_KEY_ID",
+  "arm_name": "arm",
+  "arm_model": "ufactory-xl15",
+  "camera_name": "camera",
+  "vision_service_name": "vision-1",
+  "_note": "DOF / joint limits / payload: CONFIRM from UFactory XL15 datasheet -- do not assume"
+}

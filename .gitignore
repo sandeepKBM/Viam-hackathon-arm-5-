@@ -1,0 +1,41 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual envs ---
+.venv/
+venv/
+env/
+
+# --- Reference clones (not part of this repo; clone locally) ---
+reference/
+
+# --- Viam / secrets ---
+config/robot.json
+*.key
+*.pem
+.env
+
+# --- Data / models / logs (do not commit large artifacts) ---
+data/
+datasets/
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+logs/
+*.log
+runs/
+outputs/
+
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/
