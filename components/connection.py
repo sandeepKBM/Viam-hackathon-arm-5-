@@ -38,6 +38,14 @@ async def connect_machine() -> RobotClient:
         api_key=_require_env("API_KEY"),
         api_key_id=_require_env("API_KEY_ID"),
     )
+    # Cloud/WebRTC proxy default is 20s; farm dials often need longer.
+    timeout = float(os.environ.get("VIAM_DIAL_TIMEOUT", "60"))
+    opts.dial_options.timeout = timeout
+    opts.dial_options.initial_connection_attempt_timeout = timeout
+    opts.dial_options.initial_connection_attempts = int(
+        os.environ.get("VIAM_DIAL_ATTEMPTS", "5")
+    )
     opts.check_connection_interval = 0
     opts.attempt_reconnect_interval = 0
+    print(f"Connecting to machine (dial timeout {timeout:.0f}s)…", flush=True)
     return await RobotClient.at_address(_require_env("MACHINE_ADDRESS"), opts)
