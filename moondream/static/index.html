@@ -70,7 +70,9 @@
     async function pingHealth() {
       try {
         const s = await fetch("/api/health").then((r) => r.json());
-        health.textContent = s.ok ? ("ready · " + s.model) : ("not ready · " + (s.error || "loading"));
+        health.textContent = s.ok
+          ? ("ready · " + s.model + (s.backend ? " · " + s.backend : ""))
+          : ("not ready · " + (s.error || "loading"));
         go.disabled = !s.ok;
       } catch {
         health.textContent = "host offline";
@@ -89,7 +91,8 @@
         });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || "detect failed");
-        msg.textContent = data.count + " objects";
+        const t = data.timings || {};
+        msg.textContent = data.count + " objects  ·  " + (t.total_s ?? "?") + "s";
         out.src = "/api/last.png?t=" + Date.now();
       } catch (e) {
         msg.textContent = e.message;

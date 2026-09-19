@@ -71,16 +71,147 @@ BIN_2_POSE: Dict[str, float] = dict(
     theta=159.53911912833792,
 )
 
+DROPOFF_JOINTS: List[float] = [
+    87.42271941363306,
+    -61.25800640155257,
+    -28.04985376074048,
+    -0.18138427784721722,
+    122.00295631341046,
+    2.395568896184674,
+]
+DROPOFF_POSE: Dict[str, float] = dict(
+    x=14.341128502784034,
+    y=323.93219749948594,
+    z=111.26688164189298,
+    o_x=0.04226360647420724,
+    o_y=0.9988966358085766,
+    o_z=-0.020476780462330646,
+    theta=-177.50570517189274,
+)
+
+HANDOFF_JOINTS: List[float] = [
+    56.7004397344565,
+    -42.54730081185502,
+    -30.55154885558834,
+    -81.23994338447831,
+    92.57482672722206,
+    -4.961535644235534,
+]
+HANDOFF_POSE: Dict[str, float] = dict(
+    x=110.27366250853495,
+    y=329.73063061438467,
+    z=204.55635869839605,
+    o_x=-0.7384054381154712,
+    o_y=0.6742446013071756,
+    o_z=0.012313674091332993,
+    theta=-173.10714195349388,
+)
+
 TAUGHT_JOINTS = {
     "home": HOME_JOINTS,
     "bin1": BIN_1_JOINTS,
     "bin2": BIN_2_JOINTS,
+    "dropoff": DROPOFF_JOINTS,
+    "handoff": HANDOFF_JOINTS,
+}
+TAUGHT_POSES = {
+    "home": HOME_POSE,
+    "bin1": BIN_1_POSE,
+    "bin2": BIN_2_POSE,
+    "dropoff": DROPOFF_POSE,
+    "handoff": HANDOFF_POSE,
 }
 
-COLOR_BINS = {
+PLACE_ALIASES = {
+    "bin1": "bin1",
+    "b1": "bin1",
+    "1": "bin1",
+    "binone": "bin1",
+    "firstbin": "bin1",
+    "bin2": "bin2",
+    "b2": "bin2",
+    "2": "bin2",
+    "bintwo": "bin2",
+    "secondbin": "bin2",
+    "dropoff": "dropoff",
+    "drop": "dropoff",
+    "dropout": "dropoff",
+    "dropit": "dropoff",
+    "dropitoff": "dropoff",
+    "handoff": "handoff",
+    "hand": "handoff",
+    "handover": "handoff",
+    "give": "handoff",
+    "giveme": "handoff",
+    "givehim": "handoff",
+    "giveher": "handoff",
+    "givetome": "handoff",
+    "givetohim": "handoff",
+    "givetoher": "handoff",
+    "handitover": "handoff",
+    "handittohim": "handoff",
+    "handittome": "handoff",
+}
+
+
+def normalize_place(value: str) -> str | None:
+    raw = "".join(ch for ch in str(value).lower() if ch.isalnum())
+    return PLACE_ALIASES.get(raw)
+
+# These sit on the table; pick TCP at the taught floor instead of lid depth.
+FLOOR_PICK_OBJECTS = ("bottle", "can", "pen")
+# Extra descent below MIN_Z for thin objects (mm).
+PEN_PICK_Z_OFFSET = float(os.environ.get("PEN_PICK_Z_OFFSET", 7))
+HSV_OBJECTS = ("red", "yellow")
+PICK_OBJECTS = ("red", "yellow", "can", "cup", "airpods", "pen", "bottle")
+OBJECT_ALIASES = {
+    "red": "red",
+    "redblock": "red",
+    "redblocks": "red",
+    "yellow": "yellow",
+    "yellowblock": "yellow",
+    "yellowblocks": "yellow",
+    "can": "can",
+    "soda": "can",
+    "sodacan": "can",
+    "coke": "can",
+    "cocacola": "can",
+    "cup": "cup",
+    "mug": "cup",
+    "airpods": "airpods",
+    "airpod": "airpods",
+    "airpodscase": "airpods",
+    "earbuds": "airpods",
+    "earpods": "airpods",
+    "pen": "pen",
+    "pens": "pen",
+    "bottle": "bottle",
+    "bottles": "bottle",
+    "waterbottle": "bottle",
+}
+# Detect phrases sent to Moondream for each pick object.
+OBJECT_DETECT = {
+    "can": ("soda can", "can"),
+    "cup": ("cup",),
+    "airpods": ("airpods", "earbuds case"),
+    "pen": ("pen",),
+    "bottle": ("bottle",),
+}
+OBJECT_BINS = {
     "red": "bin1",
     "yellow": "bin2",
+    "can": "bin1",
+    "cup": "bin2",
+    "airpods": "bin1",
+    "pen": "bin2",
+    "bottle": "bin1",
 }
+COLOR_BINS = OBJECT_BINS
+
+
+def normalize_object(value: str) -> str | None:
+    raw = "".join(ch for ch in str(value).lower() if ch.isalnum())
+    return OBJECT_ALIASES.get(raw)
 
 TRAVEL_Z = float(os.environ.get("TRAVEL_Z", HOME_POSE["z"]))
 PICK_ORIENTATION = {

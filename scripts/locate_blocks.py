@@ -23,6 +23,7 @@ async def main() -> None:
                 "color": b.color,
                 "bin": COLOR_BINS.get(b.color),
                 "xy_mm": [round(b.x, 1), round(b.y, 1)],
+                "region_px": [round(b.u, 1), round(b.v, 1)],
                 "depth_mm": round(b.depth_mm, 1),
                 "world_z_mm": round(b.z, 1),
                 "pick_z_mm": round(tcp_pick_z(b), 1),

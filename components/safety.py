@@ -53,7 +53,11 @@ def make_pose(
     o_z: float = -1.0,
     theta: float = 0.0,
     poly: Optional[Polygon] = None,
-    floor: float = MIN_Z,
+    floor: Optional[float] = MIN_Z,
+    check_workspace: bool = True,
 ) -> Pose:
-    assert_in_workspace(x, y, poly)
-    return Pose(x=x, y=y, z=clamp_z(z, floor), o_x=o_x, o_y=o_y, o_z=o_z, theta=theta)
+    if check_workspace:
+        assert_in_workspace(x, y, poly)
+    if floor is not None:
+        z = clamp_z(z, floor)
+    return Pose(x=x, y=y, z=z, o_x=o_x, o_y=o_y, o_z=o_z, theta=theta)

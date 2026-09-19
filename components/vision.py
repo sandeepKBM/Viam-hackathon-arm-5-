@@ -6,12 +6,14 @@ from viam.components.camera import Camera
 from viam.robot.client import RobotClient
 from viam.services.vision import VisionClient
 
+from components.constants import HSV_OBJECTS, PICK_OBJECTS
 from components.shapes import (
     CAMERA_NAME,
     DetectedShape,
     LocatedShape,
     find_shapes,
     locate_block_colors,
+    locate_pick_objects,
     locate_shapes_3d,
 )
 
@@ -72,10 +74,26 @@ class VisionComponent:
     async def locate_shapes(self) -> List[LocatedShape]:
         return await locate_shapes_3d(self.machine, self.camera_name, WORLD_FRAME)
 
-    async def locate_blocks(self, colors: tuple[str, ...] = ("red", "yellow")) -> List[LocatedShape]:
-        return await locate_block_colors(
-            self.machine, self.camera_name, WORLD_FRAME, colors=colors
-        )
+    async def locate_blocks(
+        self, colors: tuple[str, ...] | None = None
+    ) -> List[LocatedShape]:
+        names = tuple(colors or PICK_OBJECTS)
+        hsv_names = tuple(n for n in names if n in HSV_OBJECTS)
+        other = tuple(n for n in names if n not in HSV_OBJECTS)
+        found: List[LocatedShape] = []
+        if hsv_names:
+            found.extend(
+                await locate_block_colors(
+                    self.machine, self.camera_name, WORLD_FRAME, colors=hsv_names
+                )
+            )
+        if other:
+            found.extend(
+                await locate_pick_objects(
+                    self.machine, self.camera_name, WORLD_FRAME, objects=other
+                )
+            )
+        return found
 
     async def detect(self) -> List[Shape2D]:
         return await detect(self.machine, self.detector_name, self.camera_name)

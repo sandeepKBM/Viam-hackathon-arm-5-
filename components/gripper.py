@@ -9,7 +9,7 @@ from viam.robot.client import RobotClient
 FULL_OPEN_POS = 850.0
 OPEN_POS = float(os.environ.get("GRIPPER_OPEN_POS", 520))
 GRASP_POS = float(os.environ.get("GRIPPER_GRASP_POS", 0))
-GRASP_TORQUE = float(os.environ.get("GRIPPER_TORQUE", 40))
+GRASP_TORQUE = float(os.environ.get("GRIPPER_TORQUE", 15))
 GRASP_SPEED = float(os.environ.get("GRIPPER_SPEED", 2000))
 POS_SLACK = 25.0
 
@@ -37,11 +37,12 @@ class GripperComponent:
                 return float(resp[key])
         return -1.0
 
-    async def set_pos(self, pos: float) -> float:
+    async def set_pos(self, pos: float, force: bool = False) -> float:
         pos = max(0.0, min(850.0, float(pos)))
-        current = await self.get_pos()
-        if current >= 0 and abs(current - pos) <= POS_SLACK:
-            return current
+        if not force:
+            current = await self.get_pos()
+            if current >= 0 and abs(current - pos) <= POS_SLACK:
+                return current
         resp = await self.do({"set": pos})
         for key in ("position", "pos", "gripper_position"):
             if key in resp and resp[key] is not None:
@@ -52,7 +53,12 @@ class GripperComponent:
         await self.set_pos(OPEN_POS)
 
     async def open_full(self) -> None:
-        await self.set_pos(FULL_OPEN_POS)
+        try:
+            await self._gripper.open(timeout=10)
+        except Exception as exc:
+            print(f"  gripper.open failed ({exc}); setting 850")
+        pos = await self.set_pos(FULL_OPEN_POS, force=True)
+        print(f"  gripper open jaws={pos:.0f}/850")
 
     async def open(self, timeout: float = 10) -> None:
         await self.open_full()

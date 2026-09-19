@@ -26,6 +26,7 @@ if str(HERE) not in sys.path:
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from backend import load_moondream  # noqa: E402
 from detect import annotate_path  # noqa: E402
 
 load_dotenv(ROOT / ".env")
@@ -40,6 +41,7 @@ STATIC = HERE / "static"
 class ModelHost:
     def __init__(self) -> None:
         self.model = None
+        self.backend = ""
         self.ready = False
         self.error = ""
         self.last: dict = {}
@@ -49,13 +51,11 @@ state = ModelHost()
 
 
 def load_model():
-    import moondream as md
-
     print(f"loading {MODEL_ID} once…", flush=True)
-    state.model = md.photon(MODEL_ID)
+    state.model, state.backend = load_moondream(MODEL_ID)
     state.ready = True
     state.error = ""
-    print(f"{MODEL_ID} ready", flush=True)
+    print(f"{MODEL_ID} ready via {state.backend}", flush=True)
 
 
 @asynccontextmanager
@@ -82,6 +82,7 @@ async def health() -> dict:
     return {
         "ok": state.ready,
         "model": MODEL_ID,
+        "backend": state.backend,
         "error": state.error,
         "last_count": state.last.get("count"),
     }
@@ -89,6 +90,7 @@ async def health() -> dict:
 
 class DetectIn(BaseModel):
     path: str = "collector/dataset/color/000001.png"
+    labels: list[str] | None = None
 
 
 @app.post("/api/detect")
@@ -105,7 +107,7 @@ async def detect(body: DetectIn | None = None) -> JSONResponse:
     if not path.is_file():
         return JSONResponse({"ok": False, "error": f"missing image {path}"}, status_code=404)
     try:
-        result = annotate_path(state.model, path, OUT_DIR)
+        result = annotate_path(state.model, path, OUT_DIR, labels=body.labels if body else None)
     except Exception as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
     state.last = result

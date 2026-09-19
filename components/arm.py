@@ -11,6 +11,7 @@ from components.safety import in_workspace, make_pose
 
 class ArmComponent:
     def __init__(self, machine: RobotClient, name: str | None = None) -> None:
+        self.machine = machine
         self.name = name or os.environ.get("ARM_NAME", "arm")
         self._arm = Arm.from_robot(robot=machine, name=self.name)
 
@@ -45,8 +46,20 @@ class ArmComponent:
         o_z: float = -1.0,
         theta: float = 0.0,
         timeout: float = 30,
+        check_workspace: bool = True,
+        floor: float | None = MIN_Z,
     ) -> None:
-        pose = make_pose(x, y, z, o_x=o_x, o_y=o_y, o_z=o_z, theta=theta)
+        pose = make_pose(
+            x,
+            y,
+            z,
+            o_x=o_x,
+            o_y=o_y,
+            o_z=o_z,
+            theta=theta,
+            check_workspace=check_workspace,
+            floor=floor,
+        )
         await self._arm.move_to_position(pose, timeout=timeout)
 
     async def workspace_status(self, timeout: float = 10) -> dict:

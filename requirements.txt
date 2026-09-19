@@ -10,3 +10,6 @@ uvicorn
 python-multipart
 pillow
 moondream
+transformers==4.56.1
+accelerate
+einops

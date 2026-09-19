@@ -25,7 +25,7 @@ if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
 load_dotenv(ROOT / ".env")
 
-from components.voice import map_task, moves_to_bins, speak, transcribe_audio
+from components.voice import map_task, moves_to_plan, speak, transcribe_audio
 
 STATIC = HERE / "static"
 HOST = os.environ.get("VOICE_HOST", "127.0.0.1")
@@ -41,11 +41,39 @@ async def run_task(name: str, mapped: dict | None = None) -> None:
 
         await main()
         return
+    if name == "dropoff":
+        from components.arm import ArmComponent
+        from components.connection import connect_machine
+        from components.gripper import GripperComponent
+
+        machine = await connect_machine()
+        try:
+            arm = ArmComponent(machine)
+            gripper = GripperComponent(machine)
+            print("Moving to dropoff...")
+            await arm.go_to("dropoff")
+            await gripper.open_full()
+        finally:
+            await machine.close()
+        return
+    if name == "handoff":
+        from components.arm import ArmComponent
+        from components.connection import connect_machine
+        from components.gripper import GripperComponent
+        from components.pickplace import PickPlace
+
+        machine = await connect_machine()
+        try:
+            print("Moving to handoff...")
+            await PickPlace(ArmComponent(machine), GripperComponent(machine)).hand_to_human()
+        finally:
+            await machine.close()
+        return
     if name == "sort":
         from sort_blocks import main
 
-        bins = moves_to_bins((mapped or {}).get("moves") or [])
-        await main(bins or None)
+        bins, counts = moves_to_plan((mapped or {}).get("moves") or [])
+        await main(bins or None, counts or None)
         return
     if name == "locate":
         from locate_blocks import main
@@ -150,6 +178,12 @@ def main() -> None:
     import uvicorn
 
     print(f"Voice UI: http://{HOST}:{PORT}")
+    try:
+        from components.sam import load_sam
+
+        load_sam()
+    except Exception as exc:
+        print(f"SAM preload failed: {exc}")
     uvicorn.run(app, host=HOST, port=PORT, log_level="info")
 
 

@@ -126,7 +126,7 @@
   <main>
     <p class="eyebrow">Cell five</p>
     <h1>Ivo</h1>
-    <p class="hint">Hold, speak, release. The arm will take care of the rest.</p>
+    <p class="hint">Hold, speak, release. Ask Ivo to hand you something at the taught hand-off.</p>
     <div class="dial">
       <button id="talk" type="button">Hold to talk</button>
     </div>
@@ -197,7 +197,7 @@
           taskEl.textContent = "—";
         } else {
           heardEl.textContent = data.heard || "Silence";
-          const moves = (data.moves || []).map((m) => `${m.color} → ${m.place}`).join(" · ");
+          const moves = (data.moves || []).map((m) => `${m.object || m.color} → ${m.place}`).join(" · ");
           taskEl.textContent = data.task === "sort" && moves
             ? `${data.task} · ${moves}`
             : (data.task || "—");

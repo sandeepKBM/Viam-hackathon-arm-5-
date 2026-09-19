@@ -10,7 +10,7 @@ from viam.components.camera import Camera
 import boot
 from boot import ROOT
 from components.connection import connect_machine
-from components.constants import COLOR_BINS
+from components.constants import COLOR_BINS, PICK_OBJECTS
 from components.pickplace import pick_order, tcp_pick_z
 from components.safety import in_workspace
 from components.shapes import (
@@ -20,7 +20,7 @@ from components.shapes import (
     _depth_at,
     _pixel_to_world,
     _split_color_depth,
-    find_block_colors,
+    find_pick_objects,
 )
 
 OUT_DIR = os.environ.get("OUT_DIR", str(ROOT / "out"))
@@ -86,8 +86,8 @@ async def main() -> None:
                 table_depth = float(np.median(valid))
 
         located = []
-        for s in find_block_colors(bgr, colors=("red", "yellow")):
-            z_cam = _depth_at(depth_mm, s) if depth_mm is not None else 0.0
+        for s in find_pick_objects(bgr, color_path, objects=PICK_OBJECTS):
+            z_cam = _depth_at(depth_mm, s, table_depth=table_depth) if depth_mm is not None else 0.0
             if z_cam <= 0:
                 z_cam = table_depth
             if z_cam <= 0:

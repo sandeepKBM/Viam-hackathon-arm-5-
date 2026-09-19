@@ -3,53 +3,30 @@
 from __future__ import annotations
 
 import json
-import re
+import time
 from pathlib import Path
 
 import cv2
 import numpy as np
 from PIL import Image
 
-SEED_LABELS = [
-    "red block",
-    "yellow block",
-    "blue sticky note",
-    "pink sticky note",
-    "green bin",
-    "water bottle",
+# Dedicated detect() classes — not a long JSON query.
+DETECT_LABELS = [
     "soda can",
-    "juice bottle",
     "cup",
-    "bowl",
+    "airpods",
     "pen",
+    "block",
+    "can",
+    "bottle",
     "marker",
     "notebook",
-    "white case",
-    "bottle cap",
+    "cap",
+    "bowl",
+    "bin",
+    "sticky note",
     "gripper",
 ]
-
-QUERY = (
-    "List every distinct object in this photo as a comma-separated list of "
-    "short labels, like: red cube, yellow block, soda can, water bottle."
-)
-
-
-def parse_labels(text: str) -> list[str]:
-    text = text.replace("\n", ",")
-    parts = re.split(r"[,;/]| and ", text)
-    labels: list[str] = []
-    seen: set[str] = set()
-    for raw in parts:
-        label = re.sub(r"[^a-z0-9 \-]", "", raw.strip().lower())
-        label = re.sub(r"\s+", " ", label).strip()
-        if len(label) < 3 or label in seen:
-            continue
-        if label in {"object", "objects", "item", "items", "photo", "image", "table"}:
-            continue
-        seen.add(label)
-        labels.append(label)
-    return labels
 
 
 def _iou(a: dict, b: dict) -> float:
@@ -94,34 +71,46 @@ def _region(obj: dict, label: str) -> dict | None:
     }
 
 
-def list_labels(model, image: Image.Image) -> list[str]:
-    try:
-        answer = model.query(image, QUERY).get("answer", "")
-    except Exception:
-        answer = ""
-    labels = parse_labels(str(answer))
-    seen = set(labels)
-    for seed in SEED_LABELS:
-        if seed not in seen:
-            labels.append(seed)
-            seen.add(seed)
-    return labels
+def encode_image(model, image: Image.Image):
+    inner = getattr(model, "_model", model)
+    if hasattr(model, "encode_image"):
+        return model.encode_image(image)
+    if hasattr(inner, "encode_image"):
+        return inner.encode_image(image)
+    return image
 
 
 def detect_objects(model, image: Image.Image, labels: list[str] | None = None) -> dict:
-    labels = labels or list_labels(model, image)
+    labels = labels or list(DETECT_LABELS)
+    timings = {}
+    t0 = time.perf_counter()
+    encoded = encode_image(model, image)
+    timings["encode_s"] = round(time.perf_counter() - t0, 3)
+
     boxes: list[dict] = []
+    per_label: dict[str, float] = {}
     for label in labels:
+        t = time.perf_counter()
         try:
-            found = model.detect(image, label).get("objects") or []
+            found = model.detect(encoded, label).get("objects") or []
         except Exception:
             found = []
+        per_label[label] = round(time.perf_counter() - t, 3)
         for obj in found:
             region = _region(obj, label)
             if region:
                 boxes.append(region)
     boxes = nms(boxes)
-    return {"labels": labels, "objects": boxes}
+    timings["detect_s"] = round(sum(per_label.values()), 3)
+    timings["per_label_s"] = per_label
+    timings["total_s"] = round(timings["encode_s"] + timings["detect_s"], 3)
+    print(
+        f"detect encode={timings['encode_s']:.2f}s "
+        f"boxes={timings['detect_s']:.2f}s "
+        f"total={timings['total_s']:.2f}s labels={len(labels)}",
+        flush=True,
+    )
+    return {"labels": labels, "objects": boxes, "timings": timings}
 
 
 def draw_boxes(bgr: np.ndarray, objects: list[dict]) -> np.ndarray:
@@ -159,10 +148,12 @@ def draw_boxes(bgr: np.ndarray, objects: list[dict]) -> np.ndarray:
     return out
 
 
-def annotate_path(model, image_path: Path, out_dir: Path) -> dict:
+def annotate_path(model, image_path: Path, out_dir: Path, labels: list[str] | None = None) -> dict:
     image_path = Path(image_path)
+    t = time.perf_counter()
     image = Image.open(image_path).convert("RGB")
-    result = detect_objects(model, image)
+    load_s = time.perf_counter() - t
+    result = detect_objects(model, image, labels=labels)
     bgr = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     boxed = draw_boxes(bgr, result["objects"])
     out_dir = Path(out_dir)
@@ -171,11 +162,13 @@ def annotate_path(model, image_path: Path, out_dir: Path) -> dict:
     boxed_path = out_dir / f"{stem}.png"
     json_path = out_dir / f"{stem}.json"
     cv2.imwrite(str(boxed_path), boxed)
+    timings = {"image_load_s": round(load_s, 3), **result.get("timings", {})}
     payload = {
         "source": str(image_path),
         "annotated": str(boxed_path),
         "count": len(result["objects"]),
         "labels_tried": result["labels"],
+        "timings": timings,
         "objects": [
             {k: v for k, v in obj.items() if k != "area"} for obj in result["objects"]
         ],

@@ -1,6 +1,6 @@
 # Viam-hackathon-arm-5-
 
-xArm6 cell that finds red and yellow blocks, picks them at the taught floor Z, and sorts them into bins.
+xArm6 cell that finds red/yellow blocks, a soda can, cup, bottle, AirPods, or pen, picks at depth-derived Z, and places into a named target.
 
 Machine details live in `machine/config.json`. Do not commit `.env`.
 
@@ -45,8 +45,10 @@ Values in `components/constants.py` (also mirrored in `machine/config.json`):
 | Pose | How we move | Notes |
 | --- | --- | --- |
 | **home** | joints | Start / recapture view. TCP ≈ `(281, -87, 533)` |
-| **bin1** | joints | Red drop. Slightly outside the workspace polygon |
-| **bin2** | joints | Yellow drop. Slightly outside the workspace polygon |
+| **bin1** | joints | Default drop for red blocks / can / AirPods. Slightly outside the workspace polygon |
+| **bin2** | joints | Default drop for yellow blocks / cup / pen. Slightly outside the workspace polygon |
+| **dropoff** | joints | Taught drop-off. TCP ≈ `(14, 324, 111)` — below floor Z, joints only |
+| **handoff** | joints | Taught hand-off. TCP ≈ `(110, 330, 205)` |
 | Pick XY | cartesian | Depth + `transform_pose` into world |
 | Pick Z | cartesian | Always the floor: **`179.76 mm`** |
 
@@ -61,14 +63,21 @@ python scripts/get_joint_positions.py
 python scripts/go_home.py
 ```
 
-## Color sort
+## Pick and sort
 
-`scripts/sort_blocks.py` is the main routine: home, detect red/yellow, pick at depth-derived Z, place by color.
+`scripts/sort_blocks.py` is the main routine: home, detect the named objects, pick at mode-depth Z, place by spoken target. Red/yellow blocks use HSV; can / cup / bottle / AirPods / pen use Moondream boxes, then **SAM** (`facebook/sam-vit-base`) on each crop so gripper yaw follows `minAreaRect` of the mask.
 
-| Color | Bin |
+The same SAM family is on the Viam registry as `viam:sam2-detector` (`sam2` / `sam2-segments`). This cell runs SAM locally so pick does not wait on a farm vision service.
+
+| Object | Default bin |
 | --- | --- |
 | red | bin1 |
 | yellow | bin2 |
+| can (soda can) | bin1 |
+| cup | bin2 |
+| airpods | bin1 |
+| pen | bin2 |
+| bottle | bin1 |
 
 ```sh
 python scripts/locate_blocks.py
