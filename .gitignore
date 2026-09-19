@@ -1,13 +1,46 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual envs ---
+.venv/
+venv/
+env/
+
+# --- Reference clones (not part of this repo; clone locally) ---
+reference/
+
+# --- cdx-agent generated graph artifacts (regenerate, don't commit) ---
+.codex_graph/
+
+# --- Viam / secrets ---
+config/robot.json
+*.key
+*.pem
 .env
 .env.local
-*.pem
-*.key
-.venv/
-__pycache__/
-*.pyc
+
+# --- Data / models / logs (do not commit large artifacts) ---
+data/
+datasets/
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+logs/
+*.log
+runs/
+outputs/
 out/
 
-# cdx-agent / codex artifacts
-.codex_graph/
-reference/
-reference/
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/

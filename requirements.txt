@@ -1,4 +1,15 @@
+# Core Viam Python SDK
+# zero-shot branch ran unpinned; main scaffolded against ==0.80.0. Left unpinned
+# to match the code validated on this branch — pin to 0.80.0 if you need a lock.
 viam-sdk
+
+# Runtime deps used by the zero-shot / color / VLM pipeline
 python-dotenv
 numpy
 opencv-python-headless
+
+# Dev / testing
+pytest>=8.0
+
+# --- Optional VLM / zero-shot extras live in requirements-vlm.txt and
+#     requirements-zeroshot.txt (installed separately) ---
