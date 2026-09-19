@@ -140,8 +140,20 @@ class PickPlace:
         return placed
 
     async def pick_and_place(
-        self, block: LocatedShape, color_bins: Dict[str, str] | None = None
+        self,
+        block: LocatedShape,
+        color_bins: Dict[str, str] | None = None,
+        *,
+        grasp_z: float | None = None,
+        yaw: float | None = None,
+        grip_force: float | None = None,
     ) -> bool:
+        # grasp_z / yaw / grip_force are OPTIONAL per-object overrides supplied by
+        # the cognition layer's calibrated plan (experience store). All default to
+        # None, in which case this behaves exactly as before: pick height from
+        # tcp_pick_z, wrist theta from pick_orientation, grip torque from the tuned
+        # gripper default. grasp_z is still clamped to the safe Z envelope; yaw is a
+        # wrist theta (deg) applied directly to the downward TCP.
         bins = color_bins or COLOR_BINS
         bin_name = bins.get(block.color)
         if bin_name is None:
@@ -151,8 +163,11 @@ class PickPlace:
                 f"{block.color} at ({block.x:.1f}, {block.y:.1f}) is outside the workspace"
             )
 
-        z = tcp_pick_z(block)
+        z = tcp_pick_z(block) if grasp_z is None else clamp_z(float(grasp_z))
         ori = pick_orientation(block)
+        if yaw is not None:
+            ori = dict(ori)
+            ori["theta"] = _nearest_periodic(float(yaw), PICK_ORIENTATION["theta"])
         aspect = block.shape.aspect_ratio if block.shape else 1.0
         print(
             f"  pick {block.color} -> {bin_name}  "

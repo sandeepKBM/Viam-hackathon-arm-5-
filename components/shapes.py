@@ -34,6 +34,8 @@ class DetectedShape:
     long_p1: tuple = (0.0, 0.0)
     long_p2: tuple = (0.0, 0.0)
     mask: Optional[np.ndarray] = None
+    # --- Shared integration contract (additive; defaulted, non-breaking) ---
+    score: Optional[float] = None  # detector confidence (e.g. OWLv2/VLM score); None if unreported
 
 
 COLOR_RANGES = {
@@ -261,6 +263,11 @@ class LocatedShape:
     yaw: float = 0.0
     u: float = 0.0
     v: float = 0.0
+    # --- Shared integration contract (additive; all default so existing code is unaffected) ---
+    canonical_label: str = ""           # normalized vocabulary (W2 canonicalize)
+    score: Optional[float] = None       # detector confidence carried up from DetectedShape (W3)
+    difficulty: Optional[float] = None  # UQ-derived easy->tough in [0,1] (W3)
+    history: Optional[dict] = None      # per-object experience record, if known (W1 experience store)
 
 
 async def _color_depth_intrinsics(cam):

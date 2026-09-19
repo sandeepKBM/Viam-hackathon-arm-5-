@@ -70,6 +70,20 @@ async def run_task(name: str, mapped: dict | None = None) -> None:
             await machine.close()
         return
     if name == "sort":
+        # Additive hook: when USE_ORCHESTRATOR is set, route the mapped
+        # voice-intent to the real orchestrator service's `POST /run`
+        # (services/orchestrator_service.py) instead of calling
+        # sort_blocks.main directly. Default (flag unset) is the original,
+        # unchanged behavior below. The orchestrator itself decides
+        # dry-vs-live (VIAM_ALLOW_LIVE) -- this hook never connects to the
+        # robot on its own, it just forwards the intent over HTTP.
+        if os.environ.get("USE_ORCHESTRATOR", "").strip().lower() in ("1", "true", "yes"):
+            from services.base import call_service
+
+            result = call_service("orchestrator", "/run", json=mapped or {"task": "sort"})
+            print(f"orchestrator: {result}")
+            return
+
         from sort_blocks import main
 
         bins, counts = moves_to_plan((mapped or {}).get("moves") or [])

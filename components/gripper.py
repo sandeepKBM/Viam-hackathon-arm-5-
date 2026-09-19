@@ -75,14 +75,19 @@ class GripperComponent:
             pass
         return None
 
-    async def grab(self, timeout: float = 10) -> Grasp:
+    async def grab(self, timeout: float = 10, torque: float | None = None) -> Grasp:
+        # torque=None keeps the tuned default (GRASP_TORQUE); a caller (e.g. the
+        # cognition layer's per-object calibrated plan) may pass a grip force for
+        # this object. Only honoured on force-capable grippers (G2 grab_with_torque);
+        # the fallback close ignores it, same as before.
+        grasp_torque = GRASP_TORQUE if torque is None else max(0.0, min(100.0, float(torque)))
         try:
             await self.do(
                 {
                     "grab_with_torque": {
                         "position": GRASP_POS,
                         "speed": GRASP_SPEED,
-                        "torque": GRASP_TORQUE,
+                        "torque": grasp_torque,
                     }
                 }
             )
@@ -94,9 +99,9 @@ class GripperComponent:
         holding = await self._holding(timeout)
         if holding is None:
             holding = pos > GRASP_POS + POS_SLACK
-        self.last_grasp = Grasp(holding=holding, pos=pos, torque=GRASP_TORQUE)
+        self.last_grasp = Grasp(holding=holding, pos=pos, torque=grasp_torque)
         print(
             f"  grasp jaws={pos:.0f}/850  "
-            f"torque={GRASP_TORQUE:.0f}%  holding={holding}"
+            f"torque={grasp_torque:.0f}%  holding={holding}"
         )
         return self.last_grasp
