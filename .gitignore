@@ -7,4 +7,6 @@
 __pycache__/
 *.pyc
 out/
+debug/live/
+debug/failures/
 collector/dataset/

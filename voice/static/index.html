@@ -21,6 +21,11 @@
         radial-gradient(900px 520px at 50% -10%, rgba(196, 165, 116, 0.16), transparent 55%),
         radial-gradient(700px 480px at 110% 110%, rgba(80, 48, 24, 0.35), transparent 50%),
         #0b0a09;
+      transition: place-items 0.2s ease;
+    }
+    body.debug-open {
+      place-items: start center;
+      padding: 36px 24px 48px;
     }
     body::before {
       content: "";
@@ -73,7 +78,7 @@
       background: conic-gradient(from 140deg, #8a6a3a, #f0d7a2, #8a6a3a, #3a2c18, #8a6a3a);
       box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
     }
-    button {
+    .dial button {
       width: 100%;
       height: 100%;
       border-radius: 50%;
@@ -89,14 +94,14 @@
         radial-gradient(circle at 35% 25%, rgba(255, 236, 200, 0.16), transparent 42%),
         radial-gradient(circle at 50% 80%, #1a1612, #0d0b09 70%);
     }
-    button:hover { color: #f0d7a2; }
-    button.hot {
+    .dial button:hover { color: #f0d7a2; }
+    .dial button.hot {
       background:
         radial-gradient(circle at 50% 40%, rgba(180, 48, 36, 0.55), #1a0c0a 70%);
       color: #ffd7c8;
       animation: pulse 1.4s ease-in-out infinite;
     }
-    button:disabled { cursor: wait; color: #8c8578; }
+    .dial button:disabled { cursor: wait; color: #8c8578; }
     @keyframes pulse { 50% { transform: scale(0.985); } }
     .meta {
       display: grid;
@@ -120,9 +125,97 @@
     }
     #task { color: #e6c98a; font-style: normal; font-size: 1.15rem; }
     #log { display: none; }
+    .debug-toggle {
+      margin-top: 22px;
+      width: auto;
+      height: auto;
+      border-radius: 999px;
+      padding: 8px 16px;
+      letter-spacing: 0.22em;
+      font-size: 0.62rem;
+      color: #c4a574;
+      background: transparent;
+      border: 1px solid rgba(212, 184, 134, 0.28);
+      cursor: pointer;
+      font-family: Outfit, sans-serif;
+      text-transform: uppercase;
+    }
+    .debug-toggle:hover { color: #f0d7a2; }
+    .stage {
+      width: min(1100px, 94vw);
+      display: grid;
+      gap: 22px;
+      justify-items: center;
+    }
+    body.debug-open .stage {
+      grid-template-columns: minmax(320px, 440px) minmax(420px, 1fr);
+      align-items: start;
+    }
+    #debug {
+      display: none;
+      width: 100%;
+      text-align: left;
+      background: linear-gradient(180deg, rgba(255,247,232,0.05), rgba(255,255,255,0.02));
+      border: 1px solid rgba(212, 184, 134, 0.18);
+      border-radius: 28px;
+      padding: 22px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+    }
+    body.debug-open #debug { display: block; }
+    #debug h2 {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-weight: 500;
+      font-size: 1.7rem;
+      margin: 0 0 6px;
+    }
+    #debug .toolbar { display: flex; gap: 10px; align-items: center; margin: 14px 0 16px; }
+    #refresh {
+      width: auto;
+      height: auto;
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.68rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: Outfit, sans-serif;
+      background: linear-gradient(180deg, #f0d7a2, #c4a574);
+      color: #1a140c;
+    }
+    #refresh:disabled { opacity: 0.5; cursor: wait; }
+    #frame {
+      width: 100%;
+      border-radius: 16px;
+      background: #141210;
+      display: block;
+      min-height: 160px;
+    }
+    #preds { display: grid; gap: 8px; margin-top: 14px; }
+    .pred {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(212, 184, 134, 0.12);
+      font-size: 0.88rem;
+    }
+    .pred.pick {
+      border-color: #f0d7a2;
+      background: rgba(240, 215, 162, 0.08);
+      color: #f0d7a2;
+    }
+    #fail {
+      margin-top: 14px;
+      color: #c9a18a;
+      font-size: 0.82rem;
+      word-break: break-all;
+    }
   </style>
 </head>
 <body>
+  <div class="stage">
   <main>
     <p class="eyebrow">Cell five</p>
     <h1>Ivo</h1>
@@ -141,13 +234,32 @@
       </div>
     </div>
     <div id="log"></div>
+    <button class="debug-toggle" id="debugBtn" type="button">Debug</button>
   </main>
+  <aside id="debug">
+    <p class="eyebrow">Arm view</p>
+    <h2>What Ivo sees</h2>
+    <p class="hint" id="debugHint">Refresh to grab the live camera and predictions.</p>
+    <div class="toolbar">
+      <button id="refresh" type="button">Refresh view</button>
+    </div>
+    <img id="frame" alt="Camera predictions" />
+    <div id="preds"></div>
+    <div id="fail"></div>
+  </aside>
+  </div>
   <script>
     const btn = document.getElementById("talk");
     const heardEl = document.getElementById("heard");
     const taskEl = document.getElementById("task");
     const logEl = document.getElementById("log");
-    let rec = null, chunks = [], holding = false;
+    const debugBtn = document.getElementById("debugBtn");
+    const refreshBtn = document.getElementById("refresh");
+    const frameEl = document.getElementById("frame");
+    const predsEl = document.getElementById("preds");
+    const failEl = document.getElementById("fail");
+    const hintEl = document.getElementById("debugHint");
+    let rec = null, chunks = [], holding = false, debugOpen = false;
 
     function log(line) {
       logEl.textContent = (logEl.textContent + line + "\n").trim().split("\n").slice(-12).join("\n");
@@ -214,12 +326,58 @@
     btn.addEventListener("pointerup", (e) => { e.preventDefault(); stop(); });
     btn.addEventListener("pointerleave", () => { if (holding) stop(); });
 
+    function renderDebug(data) {
+      const preds = data.predictions || [];
+      const target = data.target;
+      const pick = target && target.color;
+      predsEl.innerHTML = preds.length
+        ? preds.map((p) => {
+            const isPick = pick && p.color === pick && JSON.stringify(p.bbox) === JSON.stringify(target.bbox);
+            return `<div class="pred${isPick ? " pick" : ""}"><span>${p.color}${isPick ? " · pick" : ""}</span><span>${(p.xy_mm || []).join(", ")} · z ${p.pick_z_mm ?? "—"}</span></div>`;
+          }).join("")
+        : `<div class="pred">No predictions yet</div>`;
+      if (data.has_frame) {
+        frameEl.src = "/api/debug/frame.png?t=" + encodeURIComponent(data.updated || Date.now());
+      }
+      if (target) {
+        hintEl.textContent = `Next pick: ${target.color} at (${(target.xy_mm || []).join(", ")})`;
+      } else if (preds.length) {
+        hintEl.textContent = `${preds.length} object${preds.length === 1 ? "" : "s"} in view`;
+      }
+      const fail = data.last_failure;
+      failEl.textContent = fail
+        ? `Last miss: ${fail.color} · ${fail.error} · ${fail.folder}`
+        : "";
+    }
+
+    debugBtn.addEventListener("click", () => {
+      debugOpen = !debugOpen;
+      document.body.classList.toggle("debug-open", debugOpen);
+      debugBtn.textContent = debugOpen ? "Hide debug" : "Debug";
+      if (debugOpen) fetch("/api/debug").then((r) => r.json()).then(renderDebug).catch(() => {});
+    });
+
+    refreshBtn.addEventListener("click", async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = "Capturing";
+      try {
+        const data = await (await fetch("/api/debug/refresh", { method: "POST" })).json();
+        if (!data.ok) hintEl.textContent = data.error || "Refresh failed";
+        else renderDebug(data);
+      } catch (err) {
+        hintEl.textContent = String(err);
+      }
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = "Refresh view";
+    });
+
     async function poll() {
       try {
         const data = await (await fetch("/api/status")).json();
         if (data.busy) btn.textContent = "In motion";
         else if (!holding && !rec) btn.textContent = "Hold to talk";
         btn.disabled = !!data.busy;
+        if (debugOpen && data.debug) renderDebug(data.debug);
       } catch (_) {}
       setTimeout(poll, 800);
     }

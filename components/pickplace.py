@@ -2,6 +2,7 @@ import os
 from typing import Dict, List
 
 from components.arm import ArmComponent
+from components.debug_view import prediction_from_block, publish, save_failure
 from components.constants import (
     COLOR_BINS,
     FLOOR_PICK_OBJECTS,
@@ -225,12 +226,27 @@ class PickPlace:
         while remaining:
             block = remaining.pop(0)
             dest = bins[block.color]
+            target = prediction_from_block(block, dest, tcp_pick_z(block))
+            publish(
+                [prediction_from_block(b, bins.get(b.color), tcp_pick_z(b)) for b in wanted],
+                target,
+                context={"task": "sort", "bins": bins, "counts": counts or {}},
+            )
             try:
                 ok = await self.pick_and_place(block, bins)
             except Exception as exc:
                 print(f"  skip {block.color}: {exc}")
                 results["skipped"].append(
                     {"color": block.color, "bin": dest, "x": block.x, "y": block.y, "error": str(exc)}
+                )
+                save_failure(
+                    target,
+                    {
+                        "xy_mm": [block.x, block.y],
+                        "pick_z_mm": tcp_pick_z(block),
+                        "theta": pick_orientation(block).get("theta"),
+                    },
+                    str(exc),
                 )
                 await self.arm.go_home()
                 continue
@@ -241,13 +257,27 @@ class PickPlace:
                 if remaining:
                     print("  stay at travel height for the next object", flush=True)
             else:
+                error = "gripper did not grab"
+                grasp = self.gripper.last_grasp
                 results["skipped"].append(
                     {
                         "color": block.color,
                         "bin": dest,
                         "x": block.x,
                         "y": block.y,
-                        "error": "gripper did not grab",
+                        "error": error,
                     }
+                )
+                save_failure(
+                    target,
+                    {
+                        "xy_mm": [block.x, block.y],
+                        "pick_z_mm": tcp_pick_z(block),
+                        "theta": pick_orientation(block).get("theta"),
+                        "jaws": None if grasp is None else grasp.pos,
+                        "holding": None if grasp is None else grasp.holding,
+                        "torque": None if grasp is None else grasp.torque,
+                    },
+                    error,
                 )
         return results

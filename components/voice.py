@@ -18,6 +18,10 @@ TASKS = {
 
 VALID_OBJECTS = ("red", "yellow", "can", "cup", "airpods", "pen", "bottle")
 VALID_PLACES = ("bin1", "bin2", "dropoff", "handoff")
+VALID_GOALS = ("hydrate", "write")
+GENERIC_SORT = re.compile(
+    r"\b(sort the blocks|sort blocks|pick and place|sort(?: them)?)\b"
+)
 DEFAULT_MOVES = [
     {"object": "red", "place": "bin1", "count": None},
     {"object": "yellow", "place": "bin2", "count": None},
@@ -195,6 +199,148 @@ def moves_to_bins(moves: list) -> dict:
     return bins
 
 
+def _normalize_goal(value) -> str | None:
+    raw = str(value or "").strip().lower()
+    if raw in {"", "null", "none"}:
+        return None
+    return raw if raw in VALID_GOALS else None
+
+
+def _explicit_objects(text: str) -> set[str]:
+    raw = " ".join(str(text).lower().split())
+    found = set()
+    for obj, phrases in OBJECT_PHRASES.items():
+        if any(re.search(rf"\b{re.escape(p)}\b", raw) for p in phrases):
+            found.add(obj)
+    return found
+
+
+def _goal_from_speech(text: str) -> str | None:
+    raw = " ".join(str(text).lower().split())
+    if re.search(r"\b(thirsty|need a drink|want a drink|get a drink)\b", raw):
+        return "hydrate"
+    if re.search(r"\b(want to write|need to write|take notes|need a pen)\b", raw):
+        return "write"
+    return None
+
+
+def _is_generic_sort(text: str) -> bool:
+    raw = " ".join(str(text).lower().split())
+    return bool(GENERIC_SORT.search(raw)) and not _explicit_objects(text)
+
+
+def _intent_prompt() -> str:
+    catalog = "\n".join(f"- {name}: {desc}" for name, desc in TASKS.items())
+    return (
+        "You extract spoken intent for a robot arm. "
+        "Do not claim that an object is present. "
+        "Explicit commands always take priority over inferred goals. "
+        "Never invent a pour. There is no pouring primitive.\n"
+        "Reply with JSON only:\n"
+        '{"task":"sort|home|dropoff|handoff|locate|capture|quit|unknown",'
+        '"goal":"hydrate|write|null",'
+        '"say":"short acknowledgement",'
+        '"moves":[{"object":"...","place":"...","count":1}]}\n'
+        "Rules:\n"
+        "- Extract intent. Do not assert that a bottle, pen, or cup is in view.\n"
+        "- task must be one of the ids below, or unknown.\n"
+        "- goal is hydrate, write, or null.\n"
+        '- "I am thirsty" / "I need a drink" → goal=hydrate, task=sort, moves=[].\n'
+        '- "I want to write" / "I need to take notes" → goal=write, task=sort, moves=[].\n'
+        "- Hydrate means hand over one bottle later, if vision finds a safe one. "
+        "Do not name bottle in moves unless they said bottle.\n"
+        "- Write means hand over one pen later, if vision finds a safe one. "
+        "Do not name pen in moves unless they said pen.\n"
+        "- Do not pour. Do not mention pouring or filling a cup.\n"
+        "- object must be one of: red, yellow, can, cup, airpods, pen, bottle.\n"
+        "- place must be one of: bin1, bin2, dropoff, handoff.\n"
+        "- count is a positive integer, or null for all of that object.\n"
+        "- If they name an object and a destination, that explicit move wins "
+        "and goal is null.\n"
+        '- "put the pen in bin 2" → task sort, goal null, '
+        '[{"object":"pen","place":"bin2","count":1}].\n'
+        '- "hand me two bottles" → task sort, goal null, '
+        '[{"object":"bottle","place":"handoff","count":2}].\n'
+        '- "hand me a yellow block" → task sort, '
+        '[{"object":"yellow","place":"handoff","count":1}].\n'
+        '- "give it to him" with no object → task handoff, goal null, moves [].\n'
+        '- "drop it off" with no object → task dropoff, goal null, moves [].\n'
+        '- "sort the blocks" / generic pick and place with no object → task sort, '
+        "goal null, moves []. Defaults are applied later only for that case.\n"
+        "- Unsupported or ambiguous requests: task=unknown, goal=null, moves=[], "
+        "and ask one short clarifying question.\n"
+        "- For home, dropoff, handoff, locate, capture, quit, use moves [] and goal null.\n"
+        "- say is a short acknowledgement, not a success report.\n"
+        "- Do not invent tasks.\n\n"
+        f"Tasks:\n{catalog}"
+    )
+
+
+def _finalize_mapped(text: str, data: dict) -> dict:
+    task = str(data.get("task", "unknown")).strip().lower()
+    if task not in TASKS and task != "unknown":
+        task = "unknown"
+    goal = _normalize_goal(data.get("goal")) or _goal_from_speech(text)
+    raw_moves = data.get("moves") if isinstance(data.get("moves"), list) else []
+    spoken_counts = _counts_from_speech(text)
+    spoken_objects = _explicit_objects(text)
+    moves = []
+    for move in raw_moves:
+        if not isinstance(move, dict):
+            continue
+        obj = _normalize_object(move.get("object") or move.get("color") or "")
+        place = _normalize_place(move.get("place", ""))
+        if not obj or not place:
+            continue
+        if obj in spoken_counts:
+            count = spoken_counts[obj]
+        elif "count" in move:
+            count = None if move.get("count") is None else _parse_count(move.get("count"))
+        else:
+            count = 1
+        moves.append({"object": obj, "place": place, "count": count})
+    spoken_place = _place_from_speech(text)
+    if spoken_place and moves:
+        moves = [
+            {"object": m["object"], "place": spoken_place, "count": m.get("count", 1)}
+            for m in moves
+        ]
+        task = "sort"
+        goal = None
+    elif spoken_place and spoken_objects:
+        task = "sort"
+        goal = None
+        if not moves:
+            moves = [
+                {
+                    "object": obj,
+                    "place": spoken_place,
+                    "count": spoken_counts.get(obj, 1),
+                }
+                for obj in spoken_objects
+            ]
+    elif spoken_place and task in {"sort", "unknown", "dropoff", "handoff"} and not goal:
+        task = spoken_place
+        moves = []
+    if goal and not spoken_objects:
+        moves = []
+        if task in {"unknown", "sort", "handoff", "dropoff"}:
+            task = "sort"
+    elif spoken_objects:
+        goal = None
+    if task == "sort" and not moves and not goal:
+        if _is_generic_sort(text):
+            moves = [dict(m) for m in DEFAULT_MOVES]
+        else:
+            task = "unknown"
+    say = str(data.get("say") or "").strip()
+    if task == "unknown":
+        say = say if say.endswith("?") else "What should I pick up?"
+    elif not say:
+        say = "Okay." if task in TASKS else "I am not sure what you want."
+    return {"task": task, "goal": goal, "say": say, "moves": moves}
+
+
 def moves_to_plan(moves: list) -> tuple[dict, dict]:
     bins: dict = {}
     counts: dict = {}
@@ -216,60 +362,12 @@ def map_task(text: str) -> dict:
         raise RuntimeError(
             "Missing OPENAI_API_KEY. Add it to .env (same key as the other cell)."
         )
-    catalog = "\n".join(f"- {name}: {desc}" for name, desc in TASKS.items())
     client = OpenAI()
     resp = client.chat.completions.create(
         model=LLM_MODEL,
         response_format={"type": "json_object"},
         messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You map a spoken request to one robot task. "
-                    "Reply with JSON only:\n"
-                    '{"task":"<id>","say":"<short confirmation>",'
-                    '"moves":[{"object":"<object>","place":"<bin>","count":1}]}\n'
-                    "Rules:\n"
-                    "- task must be one of the ids below, or unknown.\n"
-                    "- Extract the object, destination, and how many.\n"
-                    "- object must be one of: red, yellow, can, cup, airpods, pen, bottle.\n"
-                    "- red / red blocks → red. yellow / yellow blocks → yellow.\n"
-                    "- soda can / coke / soda → can. AirPods / earbuds → airpods.\n"
-                    "- place must be one of: bin1, bin2, dropoff, handoff.\n"
-                    "- bin 1 / first bin → bin1. bin 2 / second bin → bin2.\n"
-                    "- count is a positive integer, or null for all of that object.\n"
-                    '- "a / the / one yellow block" → count 1. Then stop.\n'
-                    '- "two pens" / "three yellow blocks" → that count, then stop.\n'
-                    '- "all yellow blocks" / "the yellow blocks" → count null.\n'
-                    "- If they name an object without a number, count is 1.\n"
-                    "- give it to him / me / her, hand it over, hand it to me → handoff.\n"
-                    "- drop off / drop it off → dropoff.\n"
-                    "- If they name an object AND give/drop-off, task is sort "
-                    "with that place.\n"
-                    '- "hand me a yellow block" → task sort, '
-                    '[{"object":"yellow","place":"handoff","count":1}].\n'
-                    '- "give him the soda can" → task sort, '
-                    '[{"object":"can","place":"handoff","count":1}].\n'
-                    '- "drop off the cup" → task sort, '
-                    '[{"object":"cup","place":"dropoff","count":1}].\n'
-                    '- "give it to him" with no object → task handoff, moves [].\n'
-                    '- "drop it off" with no object → task dropoff, moves [].\n'
-                    "- One spoken assignment is one move. "
-                    '"soda can to drop off" → '
-                    '[{"object":"can","place":"dropoff","count":1}].\n'
-                    '- "two red blocks to bin 2" → '
-                    '[{"object":"red","place":"bin2","count":2}].\n'
-                    '- "put the cup in bin 1 and the pen in handoff" → two moves, '
-                    "count 1 each.\n"
-                    "- If they say sort / pick and place but do not name "
-                    "objects or bins, use "
-                    '[{"object":"red","place":"bin1","count":null},'
-                    '{"object":"yellow","place":"bin2","count":null}].\n'
-                    "- For home, dropoff, handoff, locate, capture, quit, use moves: [].\n"
-                    "- Do not invent tasks.\n\n"
-                    f"Tasks:\n{catalog}"
-                ),
-            },
+            {"role": "system", "content": _intent_prompt()},
             {"role": "user", "content": text},
         ],
     )
@@ -277,41 +375,12 @@ def map_task(text: str) -> dict:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
-        return {"task": "unknown", "say": "I could not parse that.", "moves": []}
-    task = str(data.get("task", "unknown")).strip().lower()
-    if task not in TASKS and task != "unknown":
-        task = "unknown"
-    raw_moves = data.get("moves") if isinstance(data.get("moves"), list) else []
-    spoken_counts = _counts_from_speech(text)
-    moves = []
-    for move in raw_moves:
-        if not isinstance(move, dict):
-            continue
-        obj = _normalize_object(move.get("object") or move.get("color") or "")
-        place = _normalize_place(move.get("place", ""))
-        if not obj or not place:
-            continue
-        if obj in spoken_counts:
-            count = spoken_counts[obj]
-        elif "count" in move:
-            count = None if move.get("count") is None else _parse_count(move.get("count"))
-        else:
-            count = 1
-        moves.append({"object": obj, "place": place, "count": count})
-    spoken_place = _place_from_speech(text)
-    if spoken_place:
-        if moves:
-            moves = [
-                {"object": m["object"], "place": spoken_place, "count": m.get("count", 1)}
-                for m in moves
-            ]
-            task = "sort"
-        elif task in {"sort", "unknown", "dropoff", "handoff"}:
-            task = spoken_place
-            moves = []
-    if task == "sort" and not moves:
-        moves = [dict(m) for m in DEFAULT_MOVES]
-    say = str(data.get("say") or "").strip() or (
-        "Okay." if task in TASKS else "I am not sure what you want."
-    )
-    return {"task": task, "say": say, "moves": moves}
+        return {
+            "task": "unknown",
+            "goal": None,
+            "say": "I could not parse that. What should I pick up?",
+            "moves": [],
+        }
+    if not isinstance(data, dict):
+        data = {}
+    return _finalize_mapped(text, data)

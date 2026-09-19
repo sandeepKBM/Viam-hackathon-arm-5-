@@ -576,6 +576,9 @@ async def locate_block_colors(
 
     cam = Camera.from_robot(machine, camera_name)
     bgr, depth_mm, intr = await _color_depth_intrinsics(cam)
+    from components.debug_view import remember_frame
+
+    remember_frame(bgr)
     blocks = find_block_colors(bgr, colors=colors)
     if not blocks:
         return []
@@ -678,6 +681,9 @@ async def locate_pick_objects(
     bgr, depth_mm, intr = await _color_depth_intrinsics(cam)
     if bgr is None:
         raise RuntimeError("camera returned no decodable color image")
+    from components.debug_view import remember_frame
+
+    remember_frame(bgr)
     out_dir = Path(os.environ.get("MOONDREAM_LIVE", str(Path("out"))))
     out_dir.mkdir(parents=True, exist_ok=True)
     live_path = out_dir / "moondream_live.png"
