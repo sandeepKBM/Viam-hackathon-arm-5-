@@ -1,0 +1,2 @@
+viam-sdk>=0.79.0
+xarm-python-sdk>=1.13.0

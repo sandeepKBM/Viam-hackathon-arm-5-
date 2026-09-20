@@ -1,0 +1,13 @@
+{
+  "module_id": "hack:xarm-velocity",
+  "visibility": "private",
+  "url": "",
+  "description": "xArm Arm component with joint/cartesian velocity control, servo-angle streaming, torque/current readout, and configurable DOF (5/6/7) -- capabilities the stock UFactory module and Viam's Arm API don't expose.",
+  "models": [
+    {
+      "api": "rdk:component:arm",
+      "model": "hack:xarm-velocity:arm"
+    }
+  ],
+  "entrypoint": "run.sh"
+}

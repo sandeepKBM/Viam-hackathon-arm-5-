@@ -25,6 +25,8 @@ class DetectedShape:
     aspect_ratio: float
     box: tuple
     color: str = ""
+    # Detector confidence (e.g. OWLv2 score). None = not reported by this detector.
+    score: Optional[float] = None
 
 
 COLOR_RANGES = {
@@ -230,6 +232,14 @@ class LocatedShape:
     z: float
     shape: Optional[DetectedShape] = None
     color: str = ""
+    # --- Shared integration contract (additive; all default so existing code is unaffected) ---
+    canonical_label: str = ""          # normalized vocabulary (W2 canonicalize)
+    score: Optional[float] = None      # detector confidence carried up from DetectedShape (W3)
+    difficulty: Optional[float] = None  # UQ-derived easy->tough in [0,1] (W3)
+    history: Optional[dict] = None     # per-object experience record, if known (W1 experience store)
+    track_id: Optional[str] = None     # persistent id from an object-tracking vision service
+                                        # (components/tracking.py); None when the source detector
+                                        # doesn't track identity across frames.
 
 
 async def _color_depth_intrinsics(cam):

@@ -1,0 +1,16 @@
+# Core Viam Python SDK (the module runs inside viam-server on the arm's box).
+viam-sdk
+
+# Numerics for the reused perception geometry (components/perception3d.py,
+# components/grasp_affordance.py).
+numpy
+
+# Pulled in transitively when the reused `components` package is imported
+# (components/__init__ -> components/shapes.py imports cv2). Headless build:
+# no display on the arm's computer.
+opencv-python-headless
+
+# numba is OPTIONAL: components/grasp_affordance.py imports it lazily and falls
+# back to a pure-Python no-op if it's absent (correctness identical, just
+# slower). Uncomment to JIT the per-point geometry kernels on the machine.
+# numba

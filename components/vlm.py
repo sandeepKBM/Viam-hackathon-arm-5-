@@ -28,6 +28,8 @@ from typing import List, Optional, Sequence
 import cv2
 import numpy as np
 
+from components.canonicalize import canonicalize_label
+from components.prompts import VLM_LIST_PROMPT as _DEFAULT_VLM_LIST_PROMPT
 from components.shapes import (
     CAMERA_NAME,
     DetectedShape,
@@ -36,17 +38,16 @@ from components.shapes import (
     _depth_at,
     _pixel_to_world,
 )
+from components.uq import difficulty as _uq_difficulty
 
 VLM_MODEL = os.environ.get("VLM_MODEL", "vikhyatk/moondream2")
 VLM_REVISION = os.environ.get("VLM_REVISION", "2025-06-21")
 VLM_DTYPE = os.environ.get("VLM_DTYPE", "auto")  # auto: fp16 on CUDA, fp32 on MPS/CPU
 VLM_DEVICE = os.environ.get("VLM_DEVICE", "")  # override: cuda | mps | cpu
-# Question used to enumerate pickable objects on the table.
-VLM_LIST_PROMPT = os.environ.get(
-    "VLM_LIST_PROMPT",
-    "List each distinct object on the table as a short noun phrase, comma-separated. "
-    "Include its color, e.g. 'red block, yellow block'.",
-)
+# Question used to enumerate pickable objects on the table. Default is the
+# tuned prompt in components/prompts.py (real tabletop vocabulary); still
+# overridable via the VLM_LIST_PROMPT env var.
+VLM_LIST_PROMPT = os.environ.get("VLM_LIST_PROMPT", _DEFAULT_VLM_LIST_PROMPT)
 
 _KNOWN_COLORS = ("red", "yellow", "green", "blue", "orange", "purple", "white", "black")
 
@@ -260,6 +261,22 @@ async def locate_objects_vlm(
             continue
         p = await _pixel_to_world(machine, camera_name, s.cx, s.cy, z, intr, world_frame)
         located.append(
-            LocatedShape(label=s.label, x=p.x, y=p.y, z=p.z, shape=s, color=s.color)
+            LocatedShape(
+                label=s.label,
+                x=p.x,
+                y=p.y,
+                z=p.z,
+                shape=s,
+                color=s.color,
+                canonical_label=canonicalize_label(s.label),
+                score=s.score,
+                # Moondream reports no score (None here unless use_zeroshot=True
+                # routed through OWLv2); cheap fallback below still folds in
+                # geometry. See components.uq.enrich(...) for the fuller
+                # augmentation-consistency signal.
+                difficulty=_uq_difficulty(
+                    score=s.score, aspect_ratio=s.aspect_ratio, area=s.area
+                ),
+            )
         )
     return located

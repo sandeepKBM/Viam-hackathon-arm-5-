@@ -20,6 +20,8 @@ from typing import List, Optional, Sequence
 import cv2
 import numpy as np
 
+from components.canonicalize import canonicalize_label
+from components.prompts import ZS_PROMPTS as _DEFAULT_ZS_PROMPTS
 from components.shapes import (
     CAMERA_NAME,
     DetectedShape,
@@ -28,16 +30,18 @@ from components.shapes import (
     _depth_at,
     _pixel_to_world,
 )
+from components.uq import difficulty as _uq_difficulty
 
 # google/owlv2-base-patch16-ensemble is a good default; owlvit-base-patch32 is
 # lighter/faster; IDEA-Research/grounding-dino-tiny is the other common option.
 ZS_MODEL = os.environ.get("ZS_MODEL", "google/owlv2-base-patch16-ensemble")
 ZS_THRESHOLD = float(os.environ.get("ZS_THRESHOLD", "0.1"))
-# Prompts default to the two blocks this cell sorts. Comma-separate to override,
-# e.g. ZS_PROMPTS="red block,yellow block,blue block".
+# Prompts default to the tuned candidate labels in components/prompts.py
+# (real tabletop set: red/yellow block, cup/mug, pen, soda can/can).
+# Comma-separate to override, e.g. ZS_PROMPTS="red block,yellow block,blue block".
 ZS_PROMPTS = tuple(
     p.strip()
-    for p in os.environ.get("ZS_PROMPTS", "red block,yellow block").split(",")
+    for p in os.environ.get("ZS_PROMPTS", ",".join(_DEFAULT_ZS_PROMPTS)).split(",")
     if p.strip()
 )
 
@@ -121,6 +125,7 @@ class ZeroShotDetector:
                     aspect_ratio=long_ / max(short, 1e-6),
                     box=(x0, y0, w, h),
                     color=_color_from_label(label) or label,
+                    score=float(r["score"]) if r.get("score") is not None else None,
                 )
             )
         shapes.sort(key=lambda s: s.area, reverse=True)
@@ -200,6 +205,22 @@ async def locate_objects_zeroshot(
             continue
         p = await _pixel_to_world(machine, camera_name, s.cx, s.cy, z, intr, world_frame)
         located.append(
-            LocatedShape(label=s.label, x=p.x, y=p.y, z=p.z, shape=s, color=s.color)
+            LocatedShape(
+                label=s.label,
+                x=p.x,
+                y=p.y,
+                z=p.z,
+                shape=s,
+                color=s.color,
+                canonical_label=canonicalize_label(s.label),
+                score=s.score,
+                # Cheap fallback (score + geometry only, no augmentation calls
+                # here); pass this list through components.uq.enrich(...) /
+                # annotate_difficulty(..., detector_fn=...) for the fuller
+                # augmentation-consistency signal when the timing budget allows.
+                difficulty=_uq_difficulty(
+                    score=s.score, aspect_ratio=s.aspect_ratio, area=s.area
+                ),
+            )
         )
     return located

@@ -44,3 +44,6 @@ out/
 .DS_Store
 .idea/
 .vscode/
+
+# CLI binary (78MB) — do not commit
+/viam

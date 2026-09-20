@@ -1,6 +1,6 @@
 # Viam-hackathon-arm-5-
 
-xArm6 cell that finds red and yellow blocks on the table, picks them at the taught floor Z, and sorts them into bins.
+UFactory xArm 5 (5-DOF) cell that finds red and yellow blocks on the table, picks them at the taught floor Z, and sorts them into bins.
 
 Machine details live in `machine/config.json`. Do not commit `.env`.
 
@@ -81,6 +81,55 @@ python go_home.py
 python locate_blocks.py          # home + print world XY / workspace check (no grasp)
 python sort_blocks.py            # full sort
 ```
+
+## Polished pick-and-place (fast planner + local IK)
+
+`run_pick_and_place.py` is the full, real-arm-ready loop: connect → perceive
+(`VisionComponent`) → plan (`components/policy.py`'s rule-based planner,
+default goal `"sort the blocks"`) → execute with retries + declutter
+(`components/pipeline.py`, `components/retry.py`) → record to the
+self-improving `components/experience_store.py` → print a per-object
+summary (picked / decluttered / skipped, retry attempts/escalations, and
+the calibrated plan learned for each object so far).
+
+```sh
+.venv/bin/python run_pick_and_place.py                       # live robot, default goal
+.venv/bin/python run_pick_and_place.py --goal "sort the red blocks"
+.venv/bin/python run_pick_and_place.py --detector zeroshot    # swap the perception path
+.venv/bin/python run_pick_and_place.py --dry-run              # OFFLINE, no Viam connection
+```
+
+**Position control, no RRT per pick.** Every pick runs through
+`components/fast_planner.py`: a deterministic 3-waypoint up → over → down
+joint-space plan, executed with `move_to_joint_positions` only (never
+`move_to_position`) — replacing 3 RRT motion-plan calls per pick with 0.
+Declutter (`components/declutter.py`) still clears blockers geometrically
+before the pick if needed, and every attempt is recorded so the experience
+store's calibrated offsets/retry-budget keep adapting run to run.
+
+**Local IK (`components/ik.py`).** The Viam SDK pinned in this repo exposes
+no `compute_inverse_kinematics` (only `Arm.get_kinematics`), so the fast
+planner's real IK source is a local numerical solver built on
+[`ikpy`](https://github.com/Phylliade/ikpy) against the bundled xArm5 URDF
+at `assets/xarm5.urdf` (a copy of `xarm5_sim`'s xacro-expanded
+`xarm5_gripper_raw.urdf`, chained `link_base → joint1..5 → link5 → ...
+gripper → link_tcp`). It targets the TCP's position plus its wrist (+Z)
+axis direction — the fixed top-down grasp orientation every pick uses — and
+verifies its own answer via forward kinematics before returning it,
+raising `components.ik.UnreachablePoseError` (caught per-object, not fatal
+to the whole run) instead of silently handing back a bad joint target for
+a pose outside the arm's reach. `pip install ikpy` (already in
+`requirements.txt`) is required to build a solver; the rest of the repo
+imports fine without it. See `tests/test_ik.py` for the
+FK(IK(pose)) round-trip verification (sub-3mm / sub-2° on this cell's
+taught workspace) and `--urdf` to point at a different URDF (e.g. one
+fetched from a live arm's own `get_kinematics()` via
+`components.ik.make_local_ik_fn_from_arm`).
+
+`--dry-run` swaps in a synthetic two-block scene and a mock arm/gripper (no
+Viam connection, no camera) so the whole loop — perceive → plan → fast pick
+via local IK → record — is verifiable with no robot attached; its
+experience-store writes go to a temp file, never `data/experience.json`.
 
 ## Vision scripts
 
@@ -163,6 +212,22 @@ First run downloads weights (~4GB fp32 / ~2GB fp16). Env (`components/vlm.py`):
 for non-realtime picking), set `VLM_MODEL` to a smaller model (e.g. Florence-2),
 or use Moondream's own quantized 0.5B via their `moondream` package on Apple
 Silicon. `VisionComponent` also exposes `locate_objects_vlm(labels=..., use_zeroshot=...)`.
+
+## Registry modules (config on the machine)
+
+These are **adopted as Viam registry-module config**, not code in this repo --
+add/configure them on the machine in the Viam app (or `machine/config.json`),
+and our code below just consumes whatever they produce. No new module code is
+required to use them; the "consumer" column is what to wire the module's
+output into.
+
+| Registry module | Role | Config | Consumed by |
+| --- | --- | --- | --- |
+| `viam-labs:EfficientDet-COCO` (or `moondream-vision`) | mlmodel + vision **detector** | Detects common objects (cups/cans/person) as a `Vision` service, feeding everything downstream that calls `get_detections_from_camera`. | `components/vision.py`'s `detect()`, `components/zeroshot.py`/`components/vlm.py` as alternates. |
+| built-in `detections-to-segments` | **segmenter** | Wraps a detector to also emit per-object 3D point clouds (`get_object_point_clouds`) -- segmenting the scene into one full-object cloud per detection, not just a 2D box. | `components/perception3d.py`'s `get_object_grasps()` -- parses each object's PCD, runs `components/grasp_affordance.py`'s `classify_grasp`, and fixes the partial-view problem (see that module's docstring) by consuming the segmenter's fused/complete cloud instead of one oblique depth frame. |
+| `viam-modules:object-tracking` | **tracker** | Wraps a detector to assign each detected object a persistent id that survives across frames. | `components/tracking.py`'s `get_tracked_objects()` -- attaches the id to `LocatedShape.track_id`; `match_to_known()` uses it (falling back to nearest-XY) so the pipeline can skip re-planning/re-capturing an object it's already handling. |
+| `viam-labs:opencv` hand-eye calibration | **calibration** | One-time camera<->arm extrinsic calibration; not a runtime service. | Everything that deprojects camera pixels/points into the arm's world frame (`components/shapes.py`'s `transform_pose` calls, `components/perception3d.py`'s geometry centers) implicitly depends on this being accurate -- no code consumes it directly. |
+| `filtered_camera` + Data Management | **capture** | Filtered image/data capture and sync, configured on the camera component. | Not consumed by any module here directly -- it's a data-collection path (e.g. for future model retraining), independent of the live perception calls above. |
 
 ## Cursor / Viam MCP (optional)
 

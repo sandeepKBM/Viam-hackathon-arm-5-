@@ -11,5 +11,13 @@ opencv-python-headless
 # Dev / testing
 pytest>=8.0
 
+# Local numerical IK for the fast planner (components/ik.py), against the
+# bundled xArm5 URDF (assets/xarm5.urdf) -- the Viam SDK pinned above
+# exposes no compute_inverse_kinematics, so this is the fast planner's real
+# IK source. Imported lazily (components/ik.py, components/fast_planner.py
+# still import fine without it); only building/using a local IK solver
+# needs it installed.
+ikpy
+
 # --- Optional VLM / zero-shot extras live in requirements-vlm.txt and
 #     requirements-zeroshot.txt (installed separately) ---

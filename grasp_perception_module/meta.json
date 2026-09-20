@@ -1,0 +1,13 @@
+{
+  "module_id": "hackathons:grasp-perception",
+  "visibility": "private",
+  "url": "",
+  "description": "On-machine (in-process) grasp perception service: reads the LOCAL camera point cloud / vision services inside viam-server, runs detection + grasp localization there, and returns only a tiny JSON result -- so heavy point clouds/images never cross the cloud/TURN relay (~12.5s point-cloud fetch -> ~0.04s round trip).",
+  "models": [
+    {
+      "api": "rdk:service:generic",
+      "model": "hackathons:grasp-perception:grasp-service"
+    }
+  ],
+  "entrypoint": "run.sh"
+}
