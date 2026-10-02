@@ -273,6 +273,9 @@ def _to_skill_call(raw: Any, by_id: Dict[str, Any], scene: Sequence[Any]) -> Ski
         # references only the target; it never has to (and cannot) hand
         # back a list of live objects itself.
         kwargs["all_objects"] = list(scene)
+    elif name == "pour":
+        kwargs["source"] = raw_params.get("source") or "any"
+        kwargs["target"] = raw_params.get("target") or "cup"
     elif name == "descend_until_contact":
         for field in ("x", "y", "z_target", "force_threshold_n"):
             if field in raw_params and raw_params[field] is not None:

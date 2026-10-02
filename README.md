@@ -90,11 +90,26 @@ python scripts/find_colors.py
 python scripts/find_shapes.py
 ```
 
-`python voice/voice.py` is hold-to-talk. Whisper + LLM map speech to `home`, `sort`, `locate`, `capture`, or `quit`. Do not use Globe/Fn twice (emoji picker). Needs `OPENAI_API_KEY`.
+`python voice/voice.py` is hold-to-talk. Whisper + LLM map speech to `home`, `sort`, `locate`, `capture`, `pour`, or `quit`. Do not use Globe/Fn twice (emoji picker). Needs `OPENAI_API_KEY`.
 
 Collector writes paired samples into `collector/dataset/` (gitignored): `color/`, `depth/`, `depth_viz/`, `meta/`.
 
 Moondream stays loaded; ping `/api/detect` to classify objects and draw boxes into `collector/dataset/annotated/`.
+
+## Calibrated pour
+
+Bottle/can → cup pour, gated behind `ENABLE_CALIBRATED_POUR=1` (off by default) and a measured calibration in `config/calibration/pour_setup.json`. The committed file is an uncalibrated template, so the pour fails closed until the procedure is done. **It has not been validated on hardware yet.** The full write-up is in [docs/CALIBRATED_POUR.md](docs/CALIBRATED_POUR.md): diagnosis, frames, calibration steps, safety limits, staged hardware checklist and rollback.
+
+```sh
+python scripts/calibrate_pour_setup.py status          # what is missing, stage table
+python scripts/pour_can.py --readiness                 # per-mode gates, offline
+python scripts/pour_can.py                             # dry-run: observe + plan, no motion
+python scripts/pour_can.py --replay out/pour_runs/<run>   # offline replay
+python scripts/pour_can.py --stage hover|grasp|pour-dry   # staged hardware tests (move the arm)
+python -m unittest discover -s tests -t .              # offline tests
+```
+
+Voice: "pour the bottle into the cup" or "I am thirsty" → `pour`. The orchestrator takes `{"task": "pour", "pour": {"source": "bottle", "target": "cup"}}`. Both run the same `components.pouring.PourController`. Rollback: leave the flag unset, or run `scripts/rollback_pour.sh`.
 
 ## Cursor / Viam MCP (optional)
 

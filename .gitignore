@@ -8,3 +8,5 @@ __pycache__/
 *.pyc
 out/
 collector/dataset/
+config/calibration/pour_setup.draft.json
+config/calibration/samples/

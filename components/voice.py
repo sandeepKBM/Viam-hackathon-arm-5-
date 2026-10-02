@@ -13,6 +13,7 @@ TASKS = {
     "sort": "Pick a named object and take it to a destination. Extract the object and its destination separately.",
     "locate": "Go home, detect pick objects, print world XY and pick Z. Do not grasp.",
     "capture": "Capture a color and depth frame from the camera and print object depths.",
+    "pour": "Pour from a bottle or can into the cup. Also for 'I am thirsty' / 'pour me a drink' (no source named).",
     "quit": "Stop the voice loop and exit.",
 }
 
@@ -228,7 +229,8 @@ def map_task(text: str) -> dict:
                     "You map a spoken request to one robot task. "
                     "Reply with JSON only:\n"
                     '{"task":"<id>","say":"<short confirmation>",'
-                    '"moves":[{"object":"<object>","place":"<bin>","count":1}]}\n'
+                    '"moves":[{"object":"<object>","place":"<bin>","count":1}],'
+                    '"pour":{"source":"<bottle|can|null>","target":"<cup|other|null>","implicit":false}}\n'
                     "Rules:\n"
                     "- task must be one of the ids below, or unknown.\n"
                     "- Extract the object, destination, and how many.\n"
@@ -265,7 +267,15 @@ def map_task(text: str) -> dict:
                     "objects or bins, use "
                     '[{"object":"red","place":"bin1","count":null},'
                     '{"object":"yellow","place":"bin2","count":null}].\n'
-                    "- For home, dropoff, handoff, locate, capture, quit, use moves: [].\n"
+                    "- For home, dropoff, handoff, locate, capture, quit, pour, use moves: [].\n"
+                    "- Pouring is task pour, never sort. Fill pour.source with bottle or can "
+                    "exactly as said (null if they did not say), pour.target with what they "
+                    "want to pour into (null if unsaid).\n"
+                    '- "pour the bottle into the cup" → task pour, '
+                    '{"source":"bottle","target":"cup","implicit":false}.\n'
+                    '- "I am thirsty" / "pour me a drink" → task pour, '
+                    '{"source":null,"target":null,"implicit":true}.\n'
+                    "- Omit pour (or null) for every other task.\n"
                     "- Do not invent tasks.\n\n"
                     f"Tasks:\n{catalog}"
                 ),
@@ -314,4 +324,36 @@ def map_task(text: str) -> dict:
     say = str(data.get("say") or "").strip() or (
         "Okay." if task in TASKS else "I am not sure what you want."
     )
-    return {"task": task, "say": say, "moves": moves}
+    out = {"task": task, "say": say, "moves": moves}
+    if task == "pour":
+        out["moves"] = []
+        out["pour"] = resolve_pour_intent(data.get("pour"), text)
+        if out["pour"].get("clarify"):
+            out["say"] = out["pour"]["clarify"]
+    return out
+
+
+POUR_SOURCES = ("bottle", "can")
+
+
+def resolve_pour_intent(raw, text: str = "") -> dict:
+    """Validate the LLM's pour fields deterministically (no extra model call).
+
+    Returns {"source": bottle|can|any, "target": "cup", "implicit": bool,
+    "clarify": question or None}. A named source/target must be valid; an
+    unnamed source is only allowed for an implicit request ("I am thirsty"),
+    where the controller still needs exactly one source in view."""
+    raw = raw if isinstance(raw, dict) else {}
+    implicit = bool(raw.get("implicit"))
+    src_raw = raw.get("source")
+    tgt_raw = raw.get("target")
+    src = _normalize_object(src_raw) if src_raw else None
+    tgt = _normalize_object(tgt_raw) if tgt_raw else None
+    out = {"source": src or "any", "target": "cup", "implicit": implicit, "clarify": None}
+    if src_raw and src not in POUR_SOURCES:
+        out["clarify"] = "I can only pour from a bottle or a can. Which one should I use?"
+    elif tgt_raw and tgt != "cup":
+        out["clarify"] = "I can only pour into a cup."
+    elif not src and not implicit:
+        out["clarify"] = "Should I pour from the bottle or the can?"
+    return out

@@ -50,6 +50,10 @@ COLOR_RANGES = {
 }
 
 BLOCK_MIN_AREA = int(os.environ.get("BLOCK_MIN_AREA_PX", 250))
+# Tall/pourable objects never borrow the whole-frame (table) depth: a mask with
+# no depth of its own is unlocalizable. Table depth along the mask's ray puts
+# a tall object's XY tens of mm away from where it stands.
+NO_TABLE_DEPTH_FALLBACK = ("bottle", "can", "cup")
 BLOCK_MAX_AREA = int(os.environ.get("BLOCK_MAX_AREA_PX", 25000))
 
 
@@ -488,7 +492,8 @@ async def _locate_region_shapes(
     """Keep each mask's pixel region mapped into the world frame."""
     located: List[LocatedShape] = []
     for s in shapes:
-        u, v, z = region_interior(depth_mm, s, table_depth=table_depth)
+        fallback = 0.0 if s.color in NO_TABLE_DEPTH_FALLBACK else table_depth
+        u, v, z = region_interior(depth_mm, s, table_depth=fallback)
         if z <= 0:
             print(f"  skip {s.color} px=({u:.0f},{v:.0f}): no depth in mask")
             continue

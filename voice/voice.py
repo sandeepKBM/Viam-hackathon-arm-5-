@@ -89,6 +89,30 @@ async def run_task(name: str, mapped: dict | None = None) -> None:
         bins, counts = moves_to_plan((mapped or {}).get("moves") or [])
         await main(bins or None, counts or None)
         return
+    if name == "pour":
+        # One branch, one primitive: components.pouring.run_pour_request ->
+        # PourController. It refuses (and says so) unless
+        # ENABLE_CALIBRATED_POUR=1 and the calibrated readiness checks pass.
+        intent = (mapped or {}).get("pour") or {}
+        if intent.get("clarify"):
+            speak(intent["clarify"])
+            return
+        if os.environ.get("USE_ORCHESTRATOR", "").strip().lower() in ("1", "true", "yes"):
+            from services.base import call_service
+
+            result = call_service("orchestrator", "/run", json=mapped)
+            print(f"orchestrator: {result}")
+            speak((result or {}).get("say_result") or "Pour request sent.")
+            return
+        from components.pouring import describe_result, run_pour_request
+
+        res = await run_pour_request(intent.get("source") or "any", intent.get("target") or "cup")
+        print(f"pour: {res.state} reason={res.reason} run_dir={res.run_dir}")
+        message = describe_result(res)
+        if not res.success and res.reason == "not_ready" and intent.get("implicit"):
+            message += " I can hand you a bottle if you say: hand me the bottle."
+        speak(message)
+        return
     if name == "locate":
         from locate_blocks import main
 

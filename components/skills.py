@@ -199,6 +199,25 @@ class DescendUntilContactParams:
     force_threshold_n: Optional[float] = None
 
 
+POUR_SOURCES = ("bottle", "can", "any")
+POUR_TARGETS = ("cup",)
+
+
+@dataclass(frozen=True)
+class PourSkillParams:
+    """pour(source, target): pour from an upright `source` ("bottle", "can",
+    or "any" when the request did not name one) into `target` ("cup" -- the
+    only supported target) using the calibrated PourController
+    (components/pouring.py). The controller re-perceives the scene itself and
+    requires exactly one matching source and one real cup; it refuses (no
+    motion) unless ENABLE_CALIBRATED_POUR=1, the camera/TCP calibration is
+    valid, and the staged hardware validation has passed. Returns True only
+    after the controller reaches DONE."""
+
+    source: str = "any"
+    target: str = "cup"
+
+
 # ---------------------------------------------------------------------------
 # Per-skill validation (params schema is enforced by dataclass construction
 # itself; these add the safety checks: in_workspace + Z-floor).
@@ -255,6 +274,15 @@ def _validate_declutter(params: DeclutterParams) -> None:
     # Blockers themselves are validated as part of plan_declutter's own
     # search (components.declutter._find_temp_zone only ever returns
     # in-workspace candidates); nothing further to check here offline.
+
+
+def _validate_pour(params: PourSkillParams) -> None:
+    if params.source not in POUR_SOURCES:
+        raise SkillValidationError(f"pour source {params.source!r} must be one of {POUR_SOURCES}")
+    if params.target not in POUR_TARGETS:
+        raise SkillValidationError(
+            f"pour target {params.target!r} is not supported; only {POUR_TARGETS} (a can is never a cup)"
+        )
 
 
 def _validate_descend_until_contact(params: DescendUntilContactParams) -> None:
@@ -347,6 +375,21 @@ async def _adapt_descend_until_contact(
     )
 
 
+async def _adapt_pour(params: PourSkillParams, pickplace: PickPlace) -> bool:
+    # The same primitive voice uses (components.pouring.run_pour_request ->
+    # PourController); it gates itself on ENABLE_CALIBRATED_POUR + readiness.
+    from components.pouring import run_pour_request
+
+    res = await run_pour_request(
+        params.source,
+        params.target,
+        machine=getattr(pickplace.arm, "machine", None),
+        arm=pickplace.arm,
+        gripper=pickplace.gripper,
+    )
+    return bool(res.success)
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -392,6 +435,7 @@ SKILL_REGISTRY: Dict[str, SkillSpec] = {
         _validate_descend_until_contact,
         _adapt_descend_until_contact,
     ),
+    "pour": SkillSpec("pour", PourSkillParams, _doc(PourSkillParams), _validate_pour, _adapt_pour),
 }
 
 

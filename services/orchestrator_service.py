@@ -674,8 +674,59 @@ def _record_outcomes_with_cognition(results: List[Any], calls: List[Any]) -> Dic
 # ---------------------------------------------------------------------------
 
 
+async def _handle_pour(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """``task == "pour"``: the typed ``pour`` skill, validated through the same
+    registry as every other skill and executed through the same adapter voice
+    uses (components.pouring.run_pour_request). No perception/uq/cognition
+    round-trip and no planner/LLM call: the PourController perceives and
+    validates the scene itself."""
+    from components.pouring import PourMode, describe_result, readiness_problems
+    from components.skills import SkillValidationError, execute_call, make_skill_call
+
+    intent = payload.get("pour") or {}
+    live = _live_allowed()
+    if intent.get("clarify"):
+        return {"ok": False, "mode": "live" if live else "dry", "clarify": intent["clarify"],
+                "say_result": intent["clarify"]}
+    try:
+        call = make_skill_call("pour", source=intent.get("source") or "any", target=intent.get("target") or "cup")
+    except SkillValidationError as exc:
+        return {"ok": False, "mode": "live" if live else "dry", "error": str(exc), "say_result": str(exc)}
+    _, problems = readiness_problems(PourMode.POUR)
+    result: Dict[str, Any] = {
+        "ok": True,
+        "mode": "live" if live else "dry",
+        "plan": _plan_to_json([call]),
+        "planning_source": "typed_skill",
+        "readiness_problems": problems,
+    }
+    if not live:
+        result["execution"] = None
+        result["execution_note"] = "execution skipped: VIAM_ALLOW_LIVE not set -- the robot was never connected"
+        return result
+    from components.arm import ArmComponent
+    from components.connection import connect_machine
+    from components.gripper import GripperComponent
+    from components.pickplace import PickPlace
+    import components.pouring as pouring
+
+    machine = await connect_machine()
+    try:
+        pickplace = PickPlace(ArmComponent(machine), GripperComponent(machine))
+        pouring.LAST_RESULT = None
+        success = await execute_call(call, pickplace)
+        res = pouring.LAST_RESULT
+        result["execution"] = {"ok": bool(success), "result": None if res is None else res.as_dict()}
+        result["say_result"] = describe_result(res) if res is not None else "Pour did not run."
+    finally:
+        await machine.close()
+    return result
+
+
 async def _handle_run(payload: Dict[str, Any]) -> Dict[str, Any]:
     task = payload.get("task")
+    if task == "pour":
+        return await _handle_pour(payload)
     moves = list(payload.get("moves") or [])
     say = payload.get("say")
     live = _live_allowed()
