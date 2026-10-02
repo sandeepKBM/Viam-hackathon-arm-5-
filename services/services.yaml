@@ -1,0 +1,36 @@
+# Service placement for the voice-uq multi-service stack.
+#
+# Default: everything runs on ONE Mac (all hosts are 127.0.0.1). Each
+# service is a small FastAPI process (see services/README.md for the
+# uvicorn commands) talking to the others over plain HTTP.
+#
+# Two-Mac setup (Thunderbolt bridge between two MacBooks):
+#   1. Connect the two Macs with a Thunderbolt cable and enable a
+#      Thunderbolt Bridge network (System Settings > Network). Each Mac
+#      gets a bridge IP, e.g. Mac A = 169.254.10.1, Mac B = 169.254.10.2.
+#   2. Decide which service(s) run on which Mac. A common split: put the
+#      heavy perception model (SAM / detector) on the Mac with the better
+#      GPU/NPU ("Mac A"), and run cognition + orchestrator on "Mac B".
+#   3. For every service that runs on the OTHER machine, change its `host`
+#      below to that machine's Thunderbolt-bridge IP (not 127.0.0.1) and
+#      make sure that service is started with a matching `--host 0.0.0.0`
+#      (or the bridge IP) on the machine that actually runs it, not just
+#      bound to loopback.
+#   4. Services on the SAME machine as the caller can stay on 127.0.0.1.
+#
+# Example (perception on Mac A @ 169.254.10.1, everything else on Mac B):
+#   perception:   {host: 169.254.10.1, port: 8801}
+#   uq:           {host: 127.0.0.1,    port: 8802}
+#   cognition:    {host: 127.0.0.1,    port: 8803}
+#   orchestrator: {host: 127.0.0.1,    port: 8804}
+#
+# This file's path can be overridden with the SERVICES_CONFIG env var, and
+# any single service's host/port/url can be overridden per-process with
+# VOICEUQ_<NAME>_HOST / VOICEUQ_<NAME>_PORT / VOICEUQ_<NAME>_URL (see
+# services/config.py). A missing or unreadable file falls back to the
+# localhost defaults below.
+
+perception:  {host: 127.0.0.1, port: 8801}
+uq:          {host: 127.0.0.1, port: 8802}
+cognition:   {host: 127.0.0.1, port: 8803}
+orchestrator:{host: 127.0.0.1, port: 8804}

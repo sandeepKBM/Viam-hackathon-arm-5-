@@ -25,6 +25,7 @@ config/robot.json
 *.key
 *.pem
 .env
+.env.local
 
 # --- Data / models / logs (do not commit large artifacts) ---
 data/
@@ -37,6 +38,10 @@ logs/
 *.log
 runs/
 outputs/
+out/
+collector/dataset/
+config/calibration/pour_setup.draft.json
+config/calibration/samples/
 
 # --- OS / editor ---
 .DS_Store

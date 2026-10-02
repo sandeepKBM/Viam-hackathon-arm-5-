@@ -1,0 +1,35 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/shauryatiwari/Desktop/Projects/gits/Viam-hackathon-arm-5-/logs/.400de17b8d4eb65aaa5896d20a22706b7f0e4f04-audit.json",
+    "files": [
+        {
+            "date": 1789744446112,
+            "name": "/Users/shauryatiwari/Desktop/Projects/gits/Viam-hackathon-arm-5-/logs/mcp-puppeteer-2026-09-18.log",
+            "hash": "60956f4fec822c774004ec427c31bd079462b4d4dcf2cf53d9b2432dec2c6212"
+        },
+        {
+            "date": 1789832151157,
+            "name": "/Users/shauryatiwari/Desktop/Projects/gits/Viam-hackathon-arm-5-/logs/mcp-puppeteer-2026-09-19.log",
+            "hash": "60c343e56674c246e454047f2e0864b134f14704e1752f4dd0c27f0bb960b12d"
+        },
+        {
+            "date": 1790384116805,
+            "name": "/Users/shauryatiwari/Desktop/Projects/gits/Viam-hackathon-arm-5-/logs/mcp-puppeteer-2026-09-25.log",
+            "hash": "f0cf0ceb8811a8ba0f17a0e5e85b0c4f6d2d8e608c9dcb90efe80f06dd9586e9"
+        },
+        {
+            "date": 1790437146763,
+            "name": "/Users/shauryatiwari/Desktop/Projects/gits/Viam-hackathon-arm-5-/logs/mcp-puppeteer-2026-09-26.log",
+            "hash": "2352c22e1c29e743c78e67fcb9b25e7ef63f01ec3f6b2a99888051aca9b3f444"
+        },
+        {
+            "date": 1790908378426,
+            "name": "/Users/shauryatiwari/Desktop/Projects/gits/Viam-hackathon-arm-5-/logs/mcp-puppeteer-2026-10-01.log",
+            "hash": "596580c57c577cdd92481534df423483d6f46d656bf52fab9449c89a6032f584"
+        }
+    ],
+    "hashType": "sha256"
+}

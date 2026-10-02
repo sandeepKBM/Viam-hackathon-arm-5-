@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "status": "uncalibrated",
+  "setup_id": "armfarm5-pour",
+  "calibrated_at": null,
+  "max_age_days": 7,
+  "machine": {
+    "machine_id": "25950d11-fdd4-48e8-bebf-ca5857103f46",
+    "part_id": "cf85a512-0675-455f-b52e-cdafd12c5c62",
+    "machine_address": "armfarm5-main.310sld03v2.viam.cloud",
+    "arm_name": "arm",
+    "arm_model": "viam:ufactory:xArm850",
+    "camera_name": "cam",
+    "gripper_name": "gripper",
+    "world_frame": "world",
+    "flange_frame": "arm",
+    "pose_semantics": "arm.get_end_position / move_to_position are the flange (no TCP offset); evidence: taught floor 179.76 mm with fingertips on the table, home z 532.6 mm with the wrist camera ~500 mm above the table"
+  },
+  "camera": {
+    "model": "viam:camera:realsense",
+    "module_version_seen": "0.22.5",
+    "serial": "151222070758",
+    "mount": null,
+    "color_profile": {"width": 1280, "height": 720, "encoding": "image/jpeg"},
+    "depth_profile": {"width": 1280, "height": 720, "units_mm_per_count": 1.0, "encoding": "image/vnd.viam.dep"},
+    "intrinsics": null,
+    "distortion": null,
+    "reported_extrinsics": null,
+    "alignment": {
+      "method": "viam_realsense_align_color_depth",
+      "required_config": {"align_color_depth": true},
+      "live_config_2026_09_19": "align_color_depth not set (module default false): depth is the raw depth-imager grid, NOT registered to color",
+      "verified": false,
+      "metrics": null
+    },
+    "reference_frame": "color optical frame (+x right, +y down, +z forward); verify reported_extrinsics.translation is ~0"
+  },
+  "transforms": {
+    "T_flange_cam": null,
+    "T_world_cam": null,
+    "T_flange_tcp": null,
+    "world_to_base": "identity (live config: arm frame parent world, zero translation/rotation)",
+    "live_viam_cam_frame_2026_09_19": {
+      "source": "shared fragment xarm850-realsense-original (fd2be28c-71e5-4b8a-90a8-a514dbe75ca7), same for every armfarm",
+      "parent": "arm",
+      "translation_mm": {"x": 83, "y": -14, "z": 18},
+      "orientation_ov_degrees": {"x": -0.030391, "y": -0.003538, "z": 0.999532, "th": -97.731173},
+      "status": "nominal, not calibrated for this cell; not used for motion"
+    },
+    "live_viam_gripper_frame_2026_09_19": {"parent": "arm", "translation_mm": {"x": 0, "y": 0, "z": 105}, "note": "gripper origin, not the pad centre; not used as TCP"}
+  },
+  "gripper": {
+    "closing_axis_tcp": null,
+    "pad_length_mm": null,
+    "pad_width_mm": null,
+    "finger_reach_mm": null,
+    "max_open_mm": null,
+    "jaw_mm_per_pos": null,
+    "jaw_mm_at_pos0": null,
+    "jaw_samples": [],
+    "collision": {
+      "wrist_len_mm": null,
+      "wrist_radius_mm": null,
+      "body_radius_mm": null,
+      "finger_radius_mm": null,
+      "camera_radius_mm": null
+    },
+    "nominal_reference_not_used_for_motion": {
+      "ufactory_gripper_tcp_z_mm": 172,
+      "old_pour_script_stickout_mm": 90,
+      "note": "the old 90 mm stand-off was a guess; it put the pad centre ~80 mm past the bottle axis"
+    }
+  },
+  "bottle_frame": {
+    "definition": "B: origin at the mouth (top centre), +z along the body axis toward the mouth, +x = grasp approach at pick time. After grasp T_tcp_B is fixed (no-slip checked by jaw width after lift).",
+    "estimated_from": "aligned RGB-D per run (components/object_pose.py)"
+  },
+  "table": {
+    "normal": null,
+    "d": null,
+    "method": null,
+    "rms_mm": null
+  },
+  "obstacles": [
+    {"name": "table", "min": [-1500, -1500, -223], "max": [1500, 1500, -23], "source": "Viam fragment armfarm-workcell-obstacles"},
+    {"name": "wall-front", "min": [690, -1500, -500], "max": [790, 1500, 1100], "source": "Viam fragment armfarm-workcell-obstacles"},
+    {"name": "wall-side", "min": [-1500, -550, -500], "max": [1500, -450, 1100], "source": "Viam fragment armfarm-workcell-obstacles"},
+    {"name": "ceiling", "min": [-1500, -1500, 1000], "max": [1500, 1500, 1100], "source": "Viam fragment armfarm-workcell-obstacles"}
+  ],
+  "calibration": {
+    "method": null,
+    "date": null,
+    "sample_count": 0,
+    "samples": [],
+    "residuals": null,
+    "held_out": null
+  },
+  "validation": {
+    "acceptance": {"p95_xy_mm": 10.0, "max_xy_mm": 15.0, "p95_z_mm": 10.0},
+    "touchoff": null,
+    "passed": false
+  },
+  "viam_frame_config": null,
+  "setup_hash": null
+}

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ivo · Collector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,400&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Outfit, "Helvetica Neue", sans-serif;
+      color: #f4efe6;
+      background:
+        radial-gradient(1100px 560px at 20% -10%, rgba(196, 165, 116, 0.14), transparent 55%),
+        #0b0a09;
+    }
+    main {
+      width: min(1180px, 96vw);
+      margin: 28px auto 40px;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 22px;
+    }
+    h1 {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-weight: 500;
+      font-size: 2.2rem;
+      margin: 0 0 4px;
+    }
+    .eyebrow {
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      color: #c4a574;
+      margin: 0 0 10px;
+    }
+    .hint { color: #9a9386; font-weight: 300; margin: 0 0 16px; }
+    .live {
+      background: rgba(255,247,232,0.04);
+      border: 1px solid rgba(212, 184, 134, 0.16);
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+    }
+    .stage {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #141210;
+      aspect-ratio: 16 / 9;
+    }
+    .stage img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      background: #111;
+    }
+    .flash {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      background: #fff;
+      opacity: 0;
+    }
+    .flash.on { animation: flash 280ms ease; }
+    @keyframes flash { 0% { opacity: 0.7; } 100% { opacity: 0; } }
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 14px 28px;
+      font: 500 1rem Outfit, sans-serif;
+      letter-spacing: 0.04em;
+      color: #1a140c;
+      background: linear-gradient(180deg, #f0d7a2, #c4a574);
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.45; cursor: wait; }
+    button:hover:not(:disabled) { filter: brightness(1.06); }
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .card {
+      background: rgba(255,247,232,0.04);
+      border: 1px solid rgba(212, 184, 134, 0.16);
+      border-radius: 18px;
+      padding: 16px 16px 14px;
+    }
+    .stat { font-size: 2rem; font-family: "Cormorant Garamond", Georgia, serif; }
+    .muted { color: #9a9386; font-size: 0.82rem; font-weight: 300; }
+    .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: #8a6a3a;
+    }
+    .dot.ok { background: #8fba7a; }
+    .dot.bad { background: #c46a5a; }
+    .thumbs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .thumbs img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      border-radius: 10px;
+      background: #141210;
+    }
+    #msg { min-height: 1.2em; margin: 8px 0 0; font-size: 0.88rem; color: #d8c7a4; }
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="live">
+      <p class="eyebrow">Ivo · Cell five</p>
+      <h1>Dataset collector</h1>
+      <p class="hint">Live RealSense stream. Capture writes paired color + depth into <code>collector/dataset/</code>.</p>
+      <div class="stage">
+        <img id="live" alt="Live camera stream" src="/api/stream" />
+        <div id="flash" class="flash"></div>
+      </div>
+      <div class="row">
+        <button id="capture" type="button">Capture frame</button>
+        <span class="muted">Space also captures</span>
+      </div>
+      <p id="msg"></p>
+    </section>
+    <aside class="side">
+      <div class="card">
+        <p class="eyebrow">Samples</p>
+        <div class="stat" id="count">0</div>
+        <p class="muted" id="path"></p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Camera</p>
+        <p><span id="dot" class="dot"></span><span id="cam">connecting…</span></p>
+        <p class="muted" id="err"></p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Last capture</p>
+        <p class="muted" id="last">None yet</p>
+        <div class="thumbs">
+          <img id="lastColor" alt="Last color capture" />
+          <img id="lastDepth" alt="Last depth visualization" />
+        </div>
+      </div>
+    </aside>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const live = $("live");
+    const btn = $("capture");
+    let busy = false;
+
+    async function refreshStatus() {
+      try {
+        const s = await fetch("/api/status").then((r) => r.json());
+        $("count").textContent = s.count;
+        $("path").textContent = s.dataset;
+        $("dot").className = "dot " + (s.connected && s.has_frame ? "ok" : s.error ? "bad" : "");
+        $("cam").textContent = s.connected && s.has_frame
+          ? (s.has_depth ? "color + depth" : "color only")
+          : "waiting for frames";
+        $("err").textContent = s.error || "";
+      } catch (e) {
+        $("cam").textContent = "ui offline";
+        $("dot").className = "dot bad";
+      }
+    }
+
+    function showLast(meta) {
+      $("last").textContent = meta.id + "  ·  " + (meta.depth?.path ? "color + depth" : "color only");
+      $("lastColor").src = "/dataset/" + meta.color.path + "?t=" + Date.now();
+      if (meta.depth_viz) {
+        $("lastDepth").src = "/dataset/" + meta.depth_viz + "?t=" + Date.now();
+      }
+    }
+
+    async function capture() {
+      if (busy) return;
+      busy = true;
+      btn.disabled = true;
+      $("msg").textContent = "saving…";
+      try {
+        const res = await fetch("/api/capture", { method: "POST" });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "capture failed");
+        $("flash").classList.remove("on");
+        void $("flash").offsetWidth;
+        $("flash").classList.add("on");
+        $("count").textContent = data.count;
+        $("msg").textContent = "saved " + data.id;
+        showLast(data);
+      } catch (e) {
+        $("msg").textContent = e.message;
+      } finally {
+        busy = false;
+        btn.disabled = false;
+      }
+    }
+
+    live.addEventListener("error", () => {
+      live.src = "/api/preview.jpg?t=" + Date.now();
+      setInterval(() => { live.src = "/api/preview.jpg?t=" + Date.now(); }, 200);
+    });
+    btn.addEventListener("click", capture);
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && e.target === document.body) {
+        e.preventDefault();
+        capture();
+      }
+    });
+    refreshStatus();
+    setInterval(refreshStatus, 1500);
+  </script>
+</body>
+</html>

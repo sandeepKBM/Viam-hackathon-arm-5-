@@ -1,10 +1,20 @@
-# Core Viam Python SDK (pinned to the version scaffolded against)
+# Core Viam Python SDK
 viam-sdk==0.80.0
 
 # Dev / testing
 pytest>=8.0
 
-# --- Optional, add as modules grow ---
-# numpy
-# opencv-python        # vision/perception
-# scipy                # controls
+python-dotenv
+numpy
+opencv-python-headless
+pyobjc-framework-Cocoa
+openai
+sounddevice
+fastapi
+uvicorn
+python-multipart
+pillow
+moondream
+transformers==4.56.1
+accelerate
+einops
